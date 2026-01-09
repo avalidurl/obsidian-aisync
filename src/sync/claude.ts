@@ -37,9 +37,18 @@ export async function syncClaudeCode(app: App, homeDir: string, outputFolder: st
       const filename = `claude-code-${meta.date}-${meta.time.replace(':', '')}-${meta.sessionId}.md`;
       const filePath = `${outputDir}/${filename}`;
       
-      // Check if already synced
+      // Check if already synced AND source hasn't been modified
+      // This ensures continuing sessions get updated with new messages
       const existingFile = app.vault.getAbstractFileByPath(filePath);
-      if (existingFile) continue;
+      if (existingFile) {
+        const sourceMtime = fs.statSync(sessionFile).mtime.getTime();
+        const outputStat = await app.vault.adapter.stat(filePath);
+        if (outputStat && sourceMtime <= outputStat.mtime) {
+          continue; // Skip - no changes since last sync
+        }
+        // Source was modified - delete old note to re-sync
+        await app.vault.delete(existingFile);
+      }
       
       const markdown = generateMarkdown(meta, messages);
       await app.vault.create(filePath, markdown);

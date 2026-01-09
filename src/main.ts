@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS: AISyncSettings = {
 export default class AISyncPlugin extends Plugin {
   settings: AISyncSettings;
   autoSyncIntervalId: number | null = null;
+  statusBarItem: HTMLElement | null = null;
 
   async onload() {
     await this.loadSettings();
@@ -51,8 +52,14 @@ export default class AISyncPlugin extends Plugin {
     this.setupAutoSync();
 
     // Status bar
-    const statusBarItem = this.addStatusBarItem();
-    statusBarItem.setText(this.settings.lastSync ? `AI Sync: ${this.settings.lastSync}` : 'AI Sync: Never');
+    this.statusBarItem = this.addStatusBarItem();
+    this.updateStatusBar();
+  }
+
+  updateStatusBar() {
+    if (this.statusBarItem) {
+      this.statusBarItem.setText(this.settings.lastSync ? `AI Sync: ${this.settings.lastSync}` : 'AI Sync: Never');
+    }
   }
 
   onunload() {
@@ -135,6 +142,7 @@ export default class AISyncPlugin extends Plugin {
       // Update last sync time
       this.settings.lastSync = new Date().toLocaleTimeString();
       await this.saveSettings();
+      this.updateStatusBar();
 
       if (!silent || totalSynced > 0) {
         if (errors.length > 0) {
