@@ -1,7 +1,7 @@
 {
   "id": "aisync",
   "name": "AI Sessions Sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.0.0",
   "description": "Sync Claude Code, Codex CLI, and Cursor chat sessions to your vault as searchable markdown notes with automatic secret redaction.",
   "author": "Gökhan Turhan",
