@@ -1,5 +1,6 @@
 import { App } from 'obsidian';
 import { redactSecrets } from './redact';
+import { findJsonlFiles, escapeYaml } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -49,29 +50,6 @@ export async function syncCodex(app: App, homeDir: string, outputFolder: string)
   }
   
   return syncedCount;
-}
-
-function findJsonlFiles(dir: string): string[] {
-  const files: string[] = [];
-  
-  function walkDir(currentDir: string) {
-    try {
-      const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = path.join(currentDir, entry.name);
-        if (entry.isDirectory()) {
-          walkDir(fullPath);
-        } else if (entry.name.endsWith('.jsonl')) {
-          files.push(fullPath);
-        }
-      }
-    } catch (e) {
-      // Permission denied or other errors
-    }
-  }
-  
-  walkDir(dir);
-  return files;
 }
 
 function parseSession(filePath: string): { meta: SessionMeta; messages: Message[] } {
@@ -209,7 +187,8 @@ summary: "${firstUserMsg.replace(/"/g, '\\"')}..."
     }
   }
 
-  md += `\n---\n*Session synced by AI Sessions Sync — secrets redacted*\n`;
+  const syncTime = new Date().toISOString();
+  md += `\n---\n*🔌 Synced via Obsidian Plugin at ${syncTime} — secrets redacted*\n`;
   
   return md;
 }

@@ -1,5 +1,6 @@
 import { App } from 'obsidian';
 import { redactSecrets } from './redact';
+import { findTranscriptFiles, escapeYaml } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -52,37 +53,6 @@ export async function syncCursor(app: App, homeDir: string, outputFolder: string
   return syncedCount;
 }
 
-function findTranscriptFiles(dir: string): string[] {
-  const files: string[] = [];
-  
-  function walkDir(currentDir: string) {
-    try {
-      const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = path.join(currentDir, entry.name);
-        if (entry.isDirectory()) {
-          if (entry.name === 'agent-transcripts') {
-            // Found transcripts folder, get all .txt files
-            const transcripts = fs.readdirSync(fullPath, { withFileTypes: true });
-            for (const t of transcripts) {
-              if (t.isFile() && t.name.endsWith('.txt')) {
-                files.push(path.join(fullPath, t.name));
-              }
-            }
-          } else {
-            walkDir(fullPath);
-          }
-        }
-      }
-    } catch (e) {
-      // Permission denied or other errors
-    }
-  }
-  
-  walkDir(dir);
-  return files;
-}
-
 function parseTranscript(filePath: string): { meta: SessionMeta; messages: Message[] } {
   const content = fs.readFileSync(filePath, 'utf-8');
   const stat = fs.statSync(filePath);
@@ -94,7 +64,6 @@ function parseTranscript(filePath: string): { meta: SessionMeta; messages: Messa
   for (let i = 0; i < pathParts.length; i++) {
     if (pathParts[i] === 'projects' && i + 1 < pathParts.length) {
       project = pathParts[i + 1]
-        .replace('Users-gokhanturhan-', '')
         .replace(/^Users-[^-]+-/, '')
         .replace(/-/g, '/');
       break;
@@ -195,7 +164,8 @@ summary: "${firstUserMsg.replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
     }
   }
 
-  md += `\n---\n*Session synced by AI Sessions Sync — secrets redacted*\n`;
+  const syncTime = new Date().toISOString();
+  md += `\n---\n*🔌 Synced via Obsidian Plugin at ${syncTime} — secrets redacted*\n`;
   
   return md;
 }

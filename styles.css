@@ -1,0 +1,28 @@
+/* AI Sessions Sync - Custom Styles */
+
+/* Status bar styling */
+.aisync-status {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.aisync-status.syncing {
+  color: var(--text-accent);
+}
+
+/* Settings page styling */
+.aisync-settings h3 {
+  margin-top: 1.5em;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 0.5em;
+}
+
+/* Ribbon icon pulse animation when syncing */
+.aisync-syncing {
+  animation: aisync-pulse 1s ease-in-out infinite;
+}
+
+@keyframes aisync-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
