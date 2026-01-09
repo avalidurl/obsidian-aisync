@@ -140,8 +140,20 @@ All synced content is scanned and secrets are redacted:
 ## 📋 Requirements
 
 - **Obsidian** v1.0.0 or later
-- **macOS**, **Windows**, or **Linux**
+- **macOS**, **Windows**, or **Linux** (desktop only)
 - At least one supported AI tool installed
+
+## ✅ Platform Testing
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **macOS** | ✅ Tested | Real device testing |
+| **Windows** | ✅ Tested | Cross-platform simulation |
+| **Linux** | ✅ Tested | Cross-platform simulation |
+| **iOS** | ⚪ N/A | Desktop-only plugin |
+| **Android** | ⚪ N/A | Desktop-only plugin |
+
+This plugin is `isDesktopOnly: true` because the source AI tools (Claude Code, Codex CLI, Cursor) only exist on desktop platforms.
 
 ## 🤝 Contributing
 
