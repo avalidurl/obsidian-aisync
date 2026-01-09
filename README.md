@@ -15,6 +15,7 @@
 |---------|-------------|
 | 🔄 **One-click sync** | Sync from ribbon icon or command palette |
 | ⏰ **Auto-sync** | Background sync at configurable intervals |
+| ✏️ **Append mode** | New messages appended — your highlights & annotations preserved |
 | 🔒 **Secret redaction** | API keys, tokens, passwords automatically removed |
 | 📁 **Organized output** | Sessions sorted by tool and date |
 | 🔍 **Searchable** | Full markdown with YAML frontmatter |
@@ -88,6 +89,34 @@ Copy `main.js`, `manifest.json`, and `styles.css` to your vault's plugins folder
 | **Auto-sync interval** | Background sync frequency | Disabled |
 
 Each provider can be individually toggled in settings.
+
+## 📝 How Sync Works
+
+### Append Mode (Preserves Your Notes!)
+
+Sync **appends new messages** to existing notes — it does NOT delete and recreate. Your highlights, annotations, backlinks, and comments are preserved:
+
+```
+Sync #1: Creates note with 5 messages
+You:     Add highlights, annotations, backlinks ✅
+Sync #2: Appends 3 new messages → Your annotations PRESERVED ✅
+```
+
+### What Gets Synced
+
+| Source Change | Sync Action |
+|---------------|-------------|
+| New session | Creates new note |
+| Session continues (more messages) | Appends only new messages |
+| No changes | Skips (no unnecessary writes) |
+
+### Filename Stability
+
+Session notes use the **file creation time** (not modification time) in filenames, ensuring stable filenames even as conversations continue:
+
+```
+cursor-2026-01-10-1530-myproject-abc12345.md  ← Time stays 15:30
+```
 
 ## 📂 Output Format
 
@@ -212,12 +241,17 @@ See [DONATIONS.md](DONATIONS.md) for all supported networks.
 
 ## 📋 Changelog
 
+### v1.2.1 (2026-01-10)
+- 🔥 **IMPORTANT:** Sync now **appends** new messages instead of deleting notes
+  - Your highlights, annotations, and backlinks are preserved!
+  - Only new messages are added to existing notes
+  - Existing content is never deleted
+
 ### v1.2.0 (2026-01-10)
 - ✨ **New providers:** OpenCode and OpenRouter (14 total)
 - 🐛 **Fix:** Duplicate session files when conversations continue
   - Now uses file creation time (birthtime) for stable filenames
   - Finds existing files by session ID to prevent duplicates
-  - Automatically cleans up old duplicate files on sync
 
 ### v1.1.0 (2026-01-09)
 - ✨ Added 9 new providers: Aider, Cline, Gemini CLI, Continue, Copilot, Roo Code, Windsurf, Zed AI, Amp
