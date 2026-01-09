@@ -57,20 +57,58 @@ export async function syncClaudeCode(app: App, homeDir: string, outputFolder: st
       
       // Check if we need to update
       if (existingFiles.length > 0) {
-        // Get the newest existing file
-        const newestExisting = existingFiles.sort((a, b) => b.stat.mtime - a.stat.mtime)[0];
+        // Get the existing file (prefer exact match)
+        const existingFile = existingFiles.find(f => f.name === filename) || existingFiles[0];
         
         // Skip if source hasn't changed since last sync
-        if (sourceMtime <= newestExisting.stat.mtime) {
+        if (sourceMtime <= existingFile.stat.mtime) {
           continue;
         }
         
-        // Delete ALL old versions with this session ID
-        for (const oldFile of existingFiles) {
-          await app.vault.delete(oldFile);
+        // APPEND MODE: Read existing note, count messages, append only new ones
+        const existingContent = await app.vault.read(existingFile);
+        
+        // Count existing message blocks
+        const userMatches = existingContent.match(/## 👤 User/g) || [];
+        const assistantMatches = existingContent.match(/## 🤖 Claude Code/g) || [];
+        const existingMsgCount = userMatches.length + assistantMatches.length;
+        const newMsgCount = messages.length;
+        
+        if (newMsgCount > existingMsgCount) {
+          // Append only NEW messages
+          const newMessages = messages.slice(existingMsgCount);
+          
+          let appendContent = '';
+          for (const msg of newMessages) {
+            const content = redactSecrets(msg.content);
+            if (!content || !content.trim()) continue;
+            
+            if (msg.role === 'user') {
+              appendContent += `## 👤 User\n\n${content}\n\n---\n\n`;
+            } else if (msg.role === 'assistant') {
+              appendContent += `## 🤖 Claude Code\n\n${content}\n\n---\n\n`;
+            }
+          }
+          
+          if (appendContent) {
+            // Find footer and insert before it, or append at end
+            const footerMarker = '\n---\n*🔌 Synced';
+            let updatedContent: string;
+            
+            if (existingContent.includes(footerMarker)) {
+              updatedContent = existingContent.replace(footerMarker, appendContent + footerMarker);
+            } else {
+              updatedContent = existingContent + '\n' + appendContent;
+            }
+            
+            await app.vault.modify(existingFile, updatedContent);
+            syncedCount++;
+          }
         }
+        continue;
       }
       
+      // New session - create file
       const markdown = generateMarkdown(meta, messages);
       await app.vault.create(filePath, markdown);
       syncedCount++;
