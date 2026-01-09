@@ -3,9 +3,9 @@
 [![GitHub release](https://img.shields.io/github/v/release/avalidurl/obsidian-aisync?style=flat-square)](https://github.com/avalidurl/obsidian-aisync/releases)
 [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=%23483699&label=downloads&query=%24%5B%22aisync%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json&style=flat-square)](https://obsidian.md/plugins?id=aisync)
 [![License](https://img.shields.io/badge/license-Unlicense-blue?style=flat-square)](LICENSE)
-[![Providers](https://img.shields.io/badge/providers-12-blue?style=flat-square)](https://github.com/avalidurl/obsidian-aisync)
+[![Providers](https://img.shields.io/badge/providers-14-blue?style=flat-square)](https://github.com/avalidurl/obsidian-aisync)
 
-> Sync your AI coding sessions from **12 different tools** to your Obsidian vault as searchable markdown notes — with automatic secret redaction.
+> Sync your AI coding sessions from **14 different tools** to your Obsidian vault as searchable markdown notes — with automatic secret redaction.
 
 ---
 
@@ -19,9 +19,9 @@
 | 📁 **Organized output** | Sessions sorted by tool and date |
 | 🔍 **Searchable** | Full markdown with YAML frontmatter |
 | 📊 **Dataview ready** | Query your sessions with Dataview |
-| 🔌 **12 providers** | Support for all major AI coding tools |
+| 🔌 **14 providers** | Support for all major AI coding tools |
 
-## 🛠️ Supported AI Tools (12)
+## 🛠️ Supported AI Tools (14)
 
 | Tool | Session Location | Status |
 |------|------------------|--------|
@@ -37,6 +37,8 @@
 | **Windsurf** | Codeium/Windsurf app data | ✅ Supported |
 | **Zed AI** | `~/.config/zed/conversations/` | ✅ Supported |
 | **Amp (Sourcegraph)** | VS Code globalStorage | ✅ Supported |
+| **OpenCode** | `~/.local/share/opencode/` | ✅ Supported |
+| **OpenRouter** | `~/Downloads/openrouter*.json` (exports) | ✅ Supported |
 
 ## 📦 Installation
 
@@ -205,6 +207,24 @@ Support development with crypto donations:
 | **ZEC** | `t1KGW4ttsi4Dk9NpMMXacuo1BGq51qMHPDh` |
 
 See [DONATIONS.md](DONATIONS.md) for all supported networks.
+
+---
+
+## 📋 Changelog
+
+### v1.2.0 (2026-01-10)
+- ✨ **New providers:** OpenCode and OpenRouter (14 total)
+- 🐛 **Fix:** Duplicate session files when conversations continue
+  - Now uses file creation time (birthtime) for stable filenames
+  - Finds existing files by session ID to prevent duplicates
+  - Automatically cleans up old duplicate files on sync
+
+### v1.1.0 (2026-01-09)
+- ✨ Added 9 new providers: Aider, Cline, Gemini CLI, Continue, Copilot, Roo Code, Windsurf, Zed AI, Amp
+- 🔧 Improved session update handling
+
+### v1.0.0 (2026-01-09)
+- 🎉 Initial release with Claude Code, Codex CLI, and Cursor support
 
 ---
 
