@@ -158,6 +158,19 @@ If you find this plugin useful, consider:
 - 🐛 Reporting bugs or suggesting features
 - 💻 Contributing code or documentation
 
+### ☕ Buy Me Compute
+
+Support development with crypto donations:
+
+| Currency | Address |
+|----------|---------|
+| **BTC** | `bc1q8emnjcdj6hwyfg074c0sulr739gvmwula9359n` |
+| **ETH** | `0x36de990133D36d7E3DF9a820aA3eDE5a2320De71` |
+| **SOL** | `J1ALikLy5TZ9tqZq5zxSem5P9G4Wo6fXXWSGGjEvd9Pg` |
+| **ZEC** | `t1KGW4ttsi4Dk9NpMMXacuo1BGq51qMHPDh` |
+
+See [DONATIONS.md](DONATIONS.md) for all supported networks.
+
 ---
 
 <p align="center">
