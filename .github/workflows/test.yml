@@ -32,10 +32,11 @@ jobs:
         run: npm run build
 
       - name: Verify build output
+        shell: bash
         run: |
           ls -la main.js
           # Check file size is reasonable (>10KB means it built properly)
-          SIZE=$(stat -f%z main.js 2>/dev/null || stat -c%s main.js)
+          SIZE=$(stat -f%z main.js 2>/dev/null || stat -c%s main.js 2>/dev/null || wc -c < main.js)
           echo "main.js size: $SIZE bytes"
           if [ "$SIZE" -lt 10000 ]; then
             echo "❌ Build output too small"
