@@ -1,6 +1,6 @@
 import { App } from 'obsidian';
 import { redactSecrets } from './redact';
-import { findJsonlFiles, escapeYaml } from './utils';
+import { findJsonlFiles } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -15,6 +15,14 @@ interface SessionMeta {
 interface Message {
   role: 'user' | 'assistant' | 'tool' | 'result';
   content: string;
+}
+
+interface ContentItem {
+  type?: string;
+  text?: string;
+  name?: string;
+  input?: string | Record<string, unknown>;
+  content?: string | Record<string, unknown>;
 }
 
 export async function syncClaudeCode(app: App, homeDir: string, outputFolder: string): Promise<number> {
@@ -65,7 +73,7 @@ function parseSession(filePath: string): { meta: SessionMeta; messages: Message[
   const content = fs.readFileSync(filePath, 'utf-8');
   const lines = content.split('\n').filter(l => l.trim());
   
-  let meta: SessionMeta = {
+  const meta: SessionMeta = {
     sessionId: path.basename(filePath, '.jsonl').slice(0, 8),
     date: 'unknown',
     time: '00:00',
@@ -77,27 +85,29 @@ function parseSession(filePath: string): { meta: SessionMeta; messages: Message[
   
   for (const line of lines) {
     try {
-      const entry = JSON.parse(line);
-      const entryType = entry.type || '';
+      const entry = JSON.parse(line) as Record<string, unknown>;
+      const entryType = (entry.type as string) || '';
       
       // Extract session metadata
       if (entry.sessionId && meta.date === 'unknown') {
-        meta.sessionId = entry.sessionId.slice(0, 8);
+        meta.sessionId = (entry.sessionId as string).slice(0, 8);
       }
       
       if (entry.timestamp && meta.date === 'unknown') {
         try {
-          const dt = new Date(entry.timestamp);
+          const dt = new Date(entry.timestamp as string);
           meta.date = dt.toISOString().split('T')[0];
           meta.time = dt.toTimeString().slice(0, 5);
-        } catch {}
+        } catch {
+          // Invalid date format - ignore
+        }
       }
       
-      if (entry.cwd) meta.cwd = entry.cwd;
-      if (entry.version) meta.version = entry.version;
+      if (entry.cwd) meta.cwd = entry.cwd as string;
+      if (entry.version) meta.version = entry.version as string;
       
       // Extract messages
-      const message = entry.message || {};
+      const message = (entry.message as Record<string, unknown>) || {};
       const msgContent = message.content;
       
       if (entryType === 'user' && msgContent) {
@@ -111,18 +121,20 @@ function parseSession(filePath: string): { meta: SessionMeta; messages: Message[
           messages.push({ role: 'assistant', content: text });
         }
       }
-    } catch {}
+    } catch {
+      // Invalid JSON line - skip
+    }
   }
   
   return { meta, messages };
 }
 
-function extractTextContent(content: any): string {
+function extractTextContent(content: unknown): string {
   if (typeof content === 'string') return content;
   
   if (Array.isArray(content)) {
     const parts: string[] = [];
-    for (const item of content) {
+    for (const item of content as ContentItem[]) {
       if (typeof item === 'string') {
         parts.push(item);
       } else if (item && typeof item === 'object') {

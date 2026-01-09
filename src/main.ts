@@ -1,9 +1,8 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { syncClaudeCode } from './sync/claude';
 import { syncCodex } from './sync/codex';
 import { syncCursor } from './sync/cursor';
 import * as os from 'os';
-import * as path from 'path';
 
 interface AISyncSettings {
   outputFolder: string;
@@ -32,16 +31,16 @@ export default class AISyncPlugin extends Plugin {
     await this.loadSettings();
 
     // Add ribbon icon
-    this.addRibbonIcon('refresh-cw', 'Sync AI Sessions', async () => {
+    this.addRibbonIcon('refresh-cw', 'Sync AI sessions', async () => {
       await this.runSync();
     });
 
     // Add command
     this.addCommand({
       id: 'sync-ai-sessions',
-      name: 'Sync AI Sessions Now',
-      callback: async () => {
-        await this.runSync();
+      name: 'Sync AI sessions now',
+      callback: () => {
+        void this.runSync();
       }
     });
 
@@ -84,16 +83,16 @@ export default class AISyncPlugin extends Plugin {
 
     if (this.settings.autoSyncInterval > 0) {
       const intervalMs = this.settings.autoSyncInterval * 60 * 1000;
-      this.autoSyncIntervalId = window.setInterval(async () => {
-        await this.runSync(true);
+      this.autoSyncIntervalId = window.setInterval(() => {
+        void this.runSync(true);
       }, intervalMs);
     }
   }
 
   async runSync(silent: boolean = false) {
     const homeDir = os.homedir();
-    const vaultPath = (this.app.vault.adapter as any).basePath;
-    const outputPath = path.join(vaultPath, this.settings.outputFolder);
+    const adapter = this.app.vault.adapter as { basePath?: string };
+    const _vaultPath = adapter.basePath ?? '';
 
     let totalSynced = 0;
     const errors: string[] = [];
@@ -176,7 +175,9 @@ class AISyncSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: 'AI Sessions Sync Settings' });
+    new Setting(containerEl)
+      .setName('AI sessions sync settings')
+      .setHeading();
 
     new Setting(containerEl)
       .setName('Output folder')
@@ -189,7 +190,9 @@ class AISyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
-    containerEl.createEl('h3', { text: 'Sources' });
+    new Setting(containerEl)
+      .setName('Sources')
+      .setHeading();
 
     new Setting(containerEl)
       .setName('Claude Code')
@@ -221,7 +224,9 @@ class AISyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
-    containerEl.createEl('h3', { text: 'Auto-sync' });
+    new Setting(containerEl)
+      .setName('Auto-sync')
+      .setHeading();
 
     new Setting(containerEl)
       .setName('Auto-sync interval')
@@ -239,13 +244,15 @@ class AISyncSettingTab extends PluginSettingTab {
           this.plugin.setupAutoSync();
         }));
 
-    containerEl.createEl('h3', { text: 'Manual Sync' });
+    new Setting(containerEl)
+      .setName('Manual sync')
+      .setHeading();
 
     new Setting(containerEl)
       .setName('Sync now')
       .setDesc('Manually trigger a sync')
       .addButton(button => button
-        .setButtonText('Sync Now')
+        .setButtonText('Sync now')
         .setCta()
         .onClick(async () => {
           await this.plugin.runSync();

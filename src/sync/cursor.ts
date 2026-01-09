@@ -1,6 +1,6 @@
 import { App } from 'obsidian';
 import { redactSecrets } from './redact';
-import { findTranscriptFiles, escapeYaml } from './utils';
+import { findTranscriptFiles } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -120,7 +120,7 @@ function parseTranscript(filePath: string): { meta: SessionMeta; messages: Messa
       
       // Clean up tool calls for readability
       text = text
-        .replace(/\[Thinking\]([\s\S]*?)(?=\[Tool|\n\n|$)/g, (_, thinking) => {
+        .replace(/\[Thinking\]([\s\S]*?)(?=\[Tool|\n\n|$)/g, (_, thinking: string) => {
           const short = thinking.trim().slice(0, 300);
           return `> 💭 **Thinking:** ${short}...\n\n`;
         })

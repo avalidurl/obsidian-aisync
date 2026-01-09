@@ -1,6 +1,6 @@
 import { App } from 'obsidian';
 import { redactSecrets } from './redact';
-import { findJsonlFiles, escapeYaml } from './utils';
+import { findJsonlFiles } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -15,6 +15,14 @@ interface SessionMeta {
 interface Message {
   role: 'user' | 'assistant' | 'tool' | 'result';
   content: string;
+}
+
+interface ContentItem {
+  type?: string;
+  text?: string;
+  name?: string;
+  input?: string | Record<string, unknown>;
+  output?: string;
 }
 
 export async function syncCodex(app: App, homeDir: string, outputFolder: string): Promise<number> {
@@ -65,7 +73,7 @@ function parseSession(filePath: string): { meta: SessionMeta; messages: Message[
   const content = fs.readFileSync(filePath, 'utf-8');
   const lines = content.split('\n').filter(l => l.trim());
   
-  let meta: SessionMeta = {
+  const meta: SessionMeta = {
     sessionId: path.basename(filePath, '.jsonl').slice(0, 8),
     date: 'unknown',
     time: '00:00',
@@ -77,32 +85,33 @@ function parseSession(filePath: string): { meta: SessionMeta; messages: Message[
   
   for (const line of lines) {
     try {
-      const entry = JSON.parse(line);
-      const entryType = entry.type || '';
+      const entry = JSON.parse(line) as Record<string, unknown>;
+      const entryType = (entry.type as string) || '';
       
       // Extract session metadata from session_meta type
       if (entryType === 'session_meta') {
-        const payload = entry.payload || {};
-        if (payload.id) meta.sessionId = payload.id.slice(0, 8);
+        const payload = (entry.payload as Record<string, unknown>) || {};
+        if (payload.id) meta.sessionId = (payload.id as string).slice(0, 8);
         if (payload.timestamp) {
           try {
-            const dt = new Date(payload.timestamp);
+            const dt = new Date(payload.timestamp as string);
             meta.date = dt.toISOString().split('T')[0];
             meta.time = dt.toTimeString().slice(0, 5);
-          } catch {}
+          } catch {
+            // Invalid date format - ignore
+          }
         }
-        if (payload.cwd) meta.cwd = payload.cwd;
-        if (payload.cli_version) meta.version = payload.cli_version;
+        if (payload.cwd) meta.cwd = payload.cwd as string;
+        if (payload.cli_version) meta.version = payload.cli_version as string;
       }
       
       // Extract messages from response_item type
       if (entryType === 'response_item') {
-        const payload = entry.payload || {};
-        const role = payload.role || '';
-        const content = payload.content || [];
+        const payload = (entry.payload as Record<string, unknown>) || {};
+        const contentArr = payload.content;
         
-        if (Array.isArray(content)) {
-          for (const item of content) {
+        if (Array.isArray(contentArr)) {
+          for (const item of contentArr as ContentItem[]) {
             if (item && typeof item === 'object') {
               const itemType = item.type || '';
               const text = item.text || '';
@@ -141,15 +150,17 @@ function parseSession(filePath: string): { meta: SessionMeta; messages: Message[
       
       // Also capture user messages from event_msg type
       if (entryType === 'event_msg') {
-        const payload = entry.payload || {};
+        const payload = (entry.payload as Record<string, unknown>) || {};
         if (payload.type === 'user_message' && payload.message) {
-          const msg = payload.message;
+          const msg = payload.message as string;
           if (msg && !msg.startsWith('#') && !msg.startsWith('<')) {
             messages.push({ role: 'user', content: msg });
           }
         }
       }
-    } catch {}
+    } catch {
+      // Invalid JSON line - skip
+    }
   }
   
   return { meta, messages };

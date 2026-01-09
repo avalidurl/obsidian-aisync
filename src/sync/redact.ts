@@ -5,29 +5,29 @@
 const SECRET_PATTERNS: [RegExp, string][] = [
   // API Keys
   [/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED: OpenAI API Key]'],
-  [/sk-proj-[a-zA-Z0-9\-_]{50,}/g, '[REDACTED: OpenAI Project Key]'],
-  [/sk-ant-[a-zA-Z0-9\-_]{50,}/g, '[REDACTED: Anthropic API Key]'],
+  [/sk-proj-[a-zA-Z0-9_-]{50,}/g, '[REDACTED: OpenAI Project Key]'],
+  [/sk-ant-[a-zA-Z0-9_-]{50,}/g, '[REDACTED: Anthropic API Key]'],
   [/xai-[a-zA-Z0-9]{20,}/g, '[REDACTED: xAI API Key]'],
-  [/AIza[a-zA-Z0-9\-_]{35}/g, '[REDACTED: Google API Key]'],
+  [/AIza[a-zA-Z0-9_-]{35}/g, '[REDACTED: Google API Key]'],
   [/AKIA[A-Z0-9]{16}/g, '[REDACTED: AWS Access Key]'],
   
   // GitHub tokens
   [/ghp_[a-zA-Z0-9]{36}/g, '[REDACTED: GitHub Token]'],
   [/gho_[a-zA-Z0-9]{36}/g, '[REDACTED: GitHub OAuth Token]'],
   [/github_pat_[a-zA-Z0-9_]{22,}/g, '[REDACTED: GitHub PAT]'],
-  [/glpat-[a-zA-Z0-9\-_]{20,}/g, '[REDACTED: GitLab Token]'],
+  [/glpat-[a-zA-Z0-9_-]{20,}/g, '[REDACTED: GitLab Token]'],
   
   // Other tokens
   [/npm_[a-zA-Z0-9]{36}/g, '[REDACTED: NPM Token]'],
-  [/xox[baprs]-[a-zA-Z0-9\-]{10,}/g, '[REDACTED: Slack Token]'],
+  [/xox[baprs]-[a-zA-Z0-9-]{10,}/g, '[REDACTED: Slack Token]'],
   [/sk_live_[a-zA-Z0-9]{24,}/g, '[REDACTED: Stripe Live Key]'],
   [/sk_test_[a-zA-Z0-9]{24,}/g, '[REDACTED: Stripe Test Key]'],
   [/supabase_[a-zA-Z0-9_-]{20,}/g, '[REDACTED: Supabase Key]'],
   [/sb_[a-zA-Z0-9_-]{20,}/g, '[REDACTED: Supabase Key]'],
   
   // Bearer tokens and JWTs
-  [/Bearer [a-zA-Z0-9\-_\.]{20,}/g, '[REDACTED: Bearer Token]'],
-  [/eyJ[a-zA-Z0-9\-_]+\.eyJ[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+/g, '[REDACTED: JWT Token]'],
+  [/Bearer [a-zA-Z0-9_.+-]{20,}/g, '[REDACTED: Bearer Token]'],
+  [/eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, '[REDACTED: JWT Token]'],
   
   // Database URLs
   [/postgres(ql)?:\/\/[^\s]+/g, '[REDACTED: Database URL]'],
@@ -42,7 +42,7 @@ const SECRET_PATTERNS: [RegExp, string][] = [
 
 // Case-insensitive patterns
 const SECRET_PATTERNS_CI: [RegExp, string][] = [
-  [/password\s*[=:]\s*["']?[a-zA-Z0-9\-_\.!@#$%^&*]{8,}["']?/gi, '[REDACTED: Password]'],
+  [/password\s*[=:]\s*["']?[a-zA-Z0-9_.!@#$%^&*-]{8,}["']?/gi, '[REDACTED: Password]'],
   [/api[_-]?key\s*[=:]\s*["']?[a-zA-Z0-9_-]{16,}["']?/gi, '[REDACTED: API Key]'],
   [/secret\s*[=:]\s*["']?[a-zA-Z0-9_-]{16,}["']?/gi, '[REDACTED: Secret]'],
   [/token\s*[=:]\s*["']?[a-zA-Z0-9_.-]{20,}["']?/gi, '[REDACTED: Token]'],
