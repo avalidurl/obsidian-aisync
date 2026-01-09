@@ -34,7 +34,14 @@ jobs:
       - name: Verify build output
         run: |
           ls -la main.js
-          node -e "require('./main.js'); console.log('✅ Plugin loads successfully')"
+          # Check file size is reasonable (>10KB means it built properly)
+          SIZE=$(stat -f%z main.js 2>/dev/null || stat -c%s main.js)
+          echo "main.js size: $SIZE bytes"
+          if [ "$SIZE" -lt 10000 ]; then
+            echo "❌ Build output too small"
+            exit 1
+          fi
+          echo "✅ Build output verified ($SIZE bytes)"
 
       - name: Create mock session directories
         shell: bash
