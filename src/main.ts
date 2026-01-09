@@ -2,14 +2,35 @@ import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { syncClaudeCode } from './sync/claude';
 import { syncCodex } from './sync/codex';
 import { syncCursor } from './sync/cursor';
+import { syncAider } from './sync/aider';
+import { syncCline } from './sync/cline';
+import { syncGeminiCli } from './sync/gemini';
+import { syncContinue } from './sync/continue';
+import { syncCopilotChat } from './sync/copilot';
+import { syncRooCode } from './sync/roo';
+import { syncWindsurf } from './sync/windsurf';
+import { syncZedAi } from './sync/zed';
+import { syncAmp } from './sync/amp';
 import * as os from 'os';
 
 interface AISyncSettings {
   outputFolder: string;
+  // Core providers
   claudeEnabled: boolean;
   codexEnabled: boolean;
   cursorEnabled: boolean;
-  autoSyncInterval: number; // minutes, 0 = disabled
+  // Additional providers
+  aiderEnabled: boolean;
+  clineEnabled: boolean;
+  geminiEnabled: boolean;
+  continueEnabled: boolean;
+  copilotEnabled: boolean;
+  rooEnabled: boolean;
+  windsurfEnabled: boolean;
+  zedEnabled: boolean;
+  ampEnabled: boolean;
+  // Auto-sync
+  autoSyncInterval: number;
   lastSync: string;
 }
 
@@ -18,9 +39,41 @@ const DEFAULT_SETTINGS: AISyncSettings = {
   claudeEnabled: true,
   codexEnabled: true,
   cursorEnabled: true,
+  aiderEnabled: true,
+  clineEnabled: true,
+  geminiEnabled: true,
+  continueEnabled: true,
+  copilotEnabled: true,
+  rooEnabled: true,
+  windsurfEnabled: true,
+  zedEnabled: true,
+  ampEnabled: true,
   autoSyncInterval: 0,
   lastSync: ''
 };
+
+interface SyncProvider {
+  name: string;
+  key: keyof AISyncSettings;
+  folder: string;
+  sync: (app: App, homeDir: string, outputFolder: string) => Promise<number>;
+  desc: string;
+}
+
+const PROVIDERS: SyncProvider[] = [
+  { name: 'Claude Code', key: 'claudeEnabled', folder: 'claude-code-sessions', sync: syncClaudeCode, desc: '~/.claude/projects/' },
+  { name: 'Codex CLI', key: 'codexEnabled', folder: 'codex-sessions', sync: syncCodex, desc: '~/.codex/sessions/' },
+  { name: 'Cursor', key: 'cursorEnabled', folder: 'cursor-sessions', sync: syncCursor, desc: '~/.cursor/projects/' },
+  { name: 'Aider', key: 'aiderEnabled', folder: 'aider-sessions', sync: syncAider, desc: '~/.aider.chat.history.md' },
+  { name: 'Cline', key: 'clineEnabled', folder: 'cline-sessions', sync: syncCline, desc: 'VS Code globalStorage' },
+  { name: 'Gemini CLI', key: 'geminiEnabled', folder: 'gemini-cli-sessions', sync: syncGeminiCli, desc: '~/.gemini/' },
+  { name: 'Continue.dev', key: 'continueEnabled', folder: 'continue-sessions', sync: syncContinue, desc: '~/.continue/sessions/' },
+  { name: 'GitHub Copilot', key: 'copilotEnabled', folder: 'copilot-chat-sessions', sync: syncCopilotChat, desc: 'VS Code globalStorage' },
+  { name: 'Roo Code', key: 'rooEnabled', folder: 'roo-code-sessions', sync: syncRooCode, desc: 'VS Code globalStorage' },
+  { name: 'Windsurf', key: 'windsurfEnabled', folder: 'windsurf-sessions', sync: syncWindsurf, desc: 'Codeium/Windsurf app' },
+  { name: 'Zed AI', key: 'zedEnabled', folder: 'zed-ai-sessions', sync: syncZedAi, desc: '~/.config/zed/conversations/' },
+  { name: 'Amp', key: 'ampEnabled', folder: 'amp-sessions', sync: syncAmp, desc: 'Sourcegraph Cody' },
+];
 
 export default class AISyncPlugin extends Plugin {
   settings: AISyncSettings;
@@ -91,8 +144,6 @@ export default class AISyncPlugin extends Plugin {
 
   async runSync(silent: boolean = false) {
     const homeDir = os.homedir();
-    const adapter = this.app.vault.adapter as { basePath?: string };
-    const _vaultPath = adapter.basePath ?? '';
 
     let totalSynced = 0;
     const errors: string[] = [];
@@ -102,39 +153,19 @@ export default class AISyncPlugin extends Plugin {
     }
 
     try {
-      // Ensure output folders exist
+      // Ensure base output folder exists
       await this.ensureFolder(this.settings.outputFolder);
-      await this.ensureFolder(`${this.settings.outputFolder}/claude-code-sessions`);
-      await this.ensureFolder(`${this.settings.outputFolder}/codex-sessions`);
-      await this.ensureFolder(`${this.settings.outputFolder}/cursor-sessions`);
 
-      // Sync Claude Code
-      if (this.settings.claudeEnabled) {
+      // Sync each enabled provider
+      for (const provider of PROVIDERS) {
+        if (!this.settings[provider.key]) continue;
+
         try {
-          const count = await syncClaudeCode(this.app, homeDir, this.settings.outputFolder);
+          await this.ensureFolder(`${this.settings.outputFolder}/${provider.folder}`);
+          const count = await provider.sync(this.app, homeDir, this.settings.outputFolder);
           totalSynced += count;
         } catch (e) {
-          errors.push(`Claude: ${e}`);
-        }
-      }
-
-      // Sync Codex
-      if (this.settings.codexEnabled) {
-        try {
-          const count = await syncCodex(this.app, homeDir, this.settings.outputFolder);
-          totalSynced += count;
-        } catch (e) {
-          errors.push(`Codex: ${e}`);
-        }
-      }
-
-      // Sync Cursor
-      if (this.settings.cursorEnabled) {
-        try {
-          const count = await syncCursor(this.app, homeDir, this.settings.outputFolder);
-          totalSynced += count;
-        } catch (e) {
-          errors.push(`Cursor: ${e}`);
+          errors.push(`${provider.name}: ${e}`);
         }
       }
 
@@ -145,7 +176,7 @@ export default class AISyncPlugin extends Plugin {
 
       if (!silent || totalSynced > 0) {
         if (errors.length > 0) {
-          new Notice(`⚠️ Synced ${totalSynced} sessions with errors`);
+          new Notice(`⚠️ Synced ${totalSynced} sessions with ${errors.length} errors`);
         } else {
           new Notice(`✅ Synced ${totalSynced} new AI sessions`);
         }
@@ -191,38 +222,22 @@ class AISyncSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName('Sources')
+      .setName('Providers')
+      .setDesc('Enable or disable individual AI tools')
       .setHeading();
 
-    new Setting(containerEl)
-      .setName('Claude Code')
-      .setDesc('Sync sessions from ~/.claude/projects/')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.claudeEnabled)
-        .onChange(async (value) => {
-          this.plugin.settings.claudeEnabled = value;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('Codex CLI')
-      .setDesc('Sync sessions from ~/.codex/sessions/')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.codexEnabled)
-        .onChange(async (value) => {
-          this.plugin.settings.codexEnabled = value;
-          await this.plugin.saveSettings();
-        }));
-
-    new Setting(containerEl)
-      .setName('Cursor')
-      .setDesc('Sync sessions from ~/.cursor/projects/')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.cursorEnabled)
-        .onChange(async (value) => {
-          this.plugin.settings.cursorEnabled = value;
-          await this.plugin.saveSettings();
-        }));
+    // Dynamically create settings for each provider
+    for (const provider of PROVIDERS) {
+      new Setting(containerEl)
+        .setName(provider.name)
+        .setDesc(`Sync sessions from ${provider.desc}`)
+        .addToggle(toggle => toggle
+          .setValue(this.plugin.settings[provider.key] as boolean)
+          .onChange(async (value) => {
+            (this.plugin.settings[provider.key] as boolean) = value;
+            await this.plugin.saveSettings();
+          }));
+    }
 
     new Setting(containerEl)
       .setName('Auto-sync')
@@ -250,7 +265,7 @@ class AISyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Sync now')
-      .setDesc('Manually trigger a sync')
+      .setDesc(`Manually trigger a sync (${PROVIDERS.length} providers available)`)
       .addButton(button => button
         .setButtonText('Sync now')
         .setCta()

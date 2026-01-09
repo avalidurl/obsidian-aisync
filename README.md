@@ -3,8 +3,9 @@
 [![GitHub release](https://img.shields.io/github/v/release/avalidurl/obsidian-aisync?style=flat-square)](https://github.com/avalidurl/obsidian-aisync/releases)
 [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=%23483699&label=downloads&query=%24%5B%22aisync%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json&style=flat-square)](https://obsidian.md/plugins?id=aisync)
 [![License](https://img.shields.io/badge/license-Unlicense-blue?style=flat-square)](LICENSE)
+[![Providers](https://img.shields.io/badge/providers-12-blue?style=flat-square)](https://github.com/avalidurl/obsidian-aisync)
 
-> Sync your AI coding sessions (Claude Code, Codex CLI, Cursor) to your Obsidian vault as searchable markdown notes — with automatic secret redaction.
+> Sync your AI coding sessions from **12 different tools** to your Obsidian vault as searchable markdown notes — with automatic secret redaction.
 
 ---
 
@@ -18,14 +19,24 @@
 | 📁 **Organized output** | Sessions sorted by tool and date |
 | 🔍 **Searchable** | Full markdown with YAML frontmatter |
 | 📊 **Dataview ready** | Query your sessions with Dataview |
+| 🔌 **12 providers** | Support for all major AI coding tools |
 
-## 🛠️ Supported AI Tools
+## 🛠️ Supported AI Tools (12)
 
 | Tool | Session Location | Status |
 |------|------------------|--------|
 | **Claude Code** | `~/.claude/projects/**/*.jsonl` | ✅ Supported |
 | **Codex CLI** | `~/.codex/sessions/**/*.jsonl` | ✅ Supported |
 | **Cursor** | `~/.cursor/projects/**/agent-transcripts/*.txt` | ✅ Supported |
+| **Aider** | `~/.aider.chat.history.md` | ✅ Supported |
+| **Cline** | VS Code globalStorage | ✅ Supported |
+| **Gemini CLI** | `~/.gemini/` | ✅ Supported |
+| **Continue.dev** | `~/.continue/sessions/` | ✅ Supported |
+| **GitHub Copilot** | VS Code globalStorage | ✅ Supported |
+| **Roo Code** | VS Code globalStorage | ✅ Supported |
+| **Windsurf** | Codeium/Windsurf app data | ✅ Supported |
+| **Zed AI** | `~/.config/zed/conversations/` | ✅ Supported |
+| **Amp (Sourcegraph)** | VS Code globalStorage | ✅ Supported |
 
 ## 📦 Installation
 
@@ -71,10 +82,10 @@ Copy `main.js`, `manifest.json`, and `styles.css` to your vault's plugins folder
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Output folder** | Where to save sessions | `ai-sessions` |
-| **Claude Code** | Enable Claude Code sync | ✅ On |
-| **Codex CLI** | Enable Codex CLI sync | ✅ On |
-| **Cursor** | Enable Cursor sync | ✅ On |
+| **Providers** | Enable/disable individual tools | All enabled |
 | **Auto-sync interval** | Background sync frequency | Disabled |
+
+Each provider can be individually toggled in settings.
 
 ## 📂 Output Format
 
@@ -83,11 +94,17 @@ Sessions are organized by tool:
 ```
 ai-sessions/
 ├── claude-code-sessions/
-│   └── claude-code-2026-01-09-1430-abc12345.md
 ├── codex-sessions/
-│   └── codex-2026-01-09-1500-def67890.md
-└── cursor-sessions/
-    └── cursor-2026-01-09-1530-project-name-ghi11111.md
+├── cursor-sessions/
+├── aider-sessions/
+├── cline-sessions/
+├── gemini-cli-sessions/
+├── continue-sessions/
+├── copilot-chat-sessions/
+├── roo-code-sessions/
+├── windsurf-sessions/
+├── zed-ai-sessions/
+└── amp-sessions/
 ```
 
 Each file includes YAML frontmatter for Dataview:
@@ -133,6 +150,8 @@ All synced content is scanned and secrets are redacted:
 | OpenAI API Key | `sk-...` | `[REDACTED: OpenAI API Key]` |
 | Anthropic API Key | `sk-ant-...` | `[REDACTED: Anthropic API Key]` |
 | GitHub Token | `ghp_...` | `[REDACTED: GitHub Token]` |
+| Google API Key | `AIza...` | `[REDACTED: Google API Key]` |
+| Sourcegraph Token | `sgp_...` | `[REDACTED: Sourcegraph Token]` |
 | JWT Token | `eyJ...` | `[REDACTED: JWT Token]` |
 | Database URL | `postgres://...` | `[REDACTED: Database URL]` |
 | Private Keys | `-----BEGIN...` | `[REDACTED: Private Key Block]` |
@@ -147,17 +166,21 @@ All synced content is scanned and secrets are redacted:
 
 | Platform | Status | Notes |
 |----------|--------|-------|
-| **macOS** | ✅ Tested | Real device testing |
-| **Windows** | ✅ Tested | Cross-platform simulation |
-| **Linux** | ✅ Tested | Cross-platform simulation |
+| **macOS** | ✅ Tested | Full support |
+| **Windows** | ✅ Tested | Full support |
+| **Linux** | ✅ Tested | Full support |
 | **iOS** | ⚪ N/A | Desktop-only plugin |
 | **Android** | ⚪ N/A | Desktop-only plugin |
 
-This plugin is `isDesktopOnly: true` because the source AI tools (Claude Code, Codex CLI, Cursor) only exist on desktop platforms.
+This plugin is `isDesktopOnly: true` because the source AI tools only exist on desktop platforms.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! To add a new provider:
+
+1. Create `src/sync/<provider>.ts` based on existing sync files
+2. Add import and register in `src/main.ts`
+3. Update this README
 
 ## 📜 License
 

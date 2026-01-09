@@ -1,9 +1,9 @@
 {
   "id": "aisync",
   "name": "AI Sessions Sync",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "minAppVersion": "1.0.0",
-  "description": "Sync Claude Code, Codex CLI, and Cursor chat sessions to your vault as searchable markdown notes with automatic secret redaction.",
+  "description": "Sync 12 AI coding tools (Claude Code, Codex, Cursor, Aider, Cline, Gemini CLI, Continue, Copilot, Roo Code, Windsurf, Zed AI, Amp) to your vault as searchable markdown notes with automatic secret redaction.",
   "author": "Gökhan Turhan",
   "authorUrl": "https://github.com/avalidurl",
   "isDesktopOnly": true
