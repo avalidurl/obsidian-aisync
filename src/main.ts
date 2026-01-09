@@ -244,17 +244,15 @@ class AISyncSettingTab extends PluginSettingTab {
       .setHeading();
 
     new Setting(containerEl)
-      .setName('Auto-sync interval')
-      .setDesc('Automatically sync every X minutes (0 = disabled)')
-      .addDropdown(dropdown => dropdown
-        .addOption('0', 'Disabled')
-        .addOption('5', '5 minutes')
-        .addOption('15', '15 minutes')
-        .addOption('30', '30 minutes')
-        .addOption('60', '1 hour')
+      .setName('Auto-sync interval (minutes)')
+      .setDesc('Automatically sync every X minutes (0 = disabled, min 1)')
+      .addText(text => text
+        .setPlaceholder('0')
         .setValue(String(this.plugin.settings.autoSyncInterval))
         .onChange(async (value) => {
-          this.plugin.settings.autoSyncInterval = parseInt(value);
+          const num = parseInt(value) || 0;
+          // Enforce minimum of 1 minute if enabled, max 1440 (24 hours)
+          this.plugin.settings.autoSyncInterval = num <= 0 ? 0 : Math.min(Math.max(num, 1), 1440);
           await this.plugin.saveSettings();
           this.plugin.setupAutoSync();
         }));
