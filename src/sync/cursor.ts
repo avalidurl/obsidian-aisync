@@ -38,17 +38,30 @@ export async function syncCursor(app: App, homeDir: string, outputFolder: string
       const filename = `cursor-${meta.date}-${meta.time.replace(':', '')}-${projectShort}-${meta.sessionId}.md`;
       const filePath = `${outputDir}/${filename}`;
       
-      // Check if already synced AND source hasn't been modified
-      // This ensures continuing sessions get updated with new messages
-      const existingFile = app.vault.getAbstractFileByPath(filePath);
-      if (existingFile) {
-        const sourceMtime = fs.statSync(transcriptFile).mtime.getTime();
-        const outputStat = await app.vault.adapter.stat(filePath);
-        if (outputStat && sourceMtime <= outputStat.mtime) {
-          continue; // Skip - no changes since last sync
+      // Find any existing file with same session ID (handles filename changes)
+      const sessionId = meta.sessionId;
+      const existingFiles = app.vault.getFiles().filter(f => 
+        f.path.startsWith(outputDir) && 
+        f.path.includes(sessionId) &&
+        f.extension === 'md'
+      );
+      
+      const sourceMtime = fs.statSync(transcriptFile).mtime.getTime();
+      
+      // Check if we need to update
+      if (existingFiles.length > 0) {
+        // Get the newest existing file
+        const newestExisting = existingFiles.sort((a, b) => b.stat.mtime - a.stat.mtime)[0];
+        
+        // Skip if source hasn't changed since last sync
+        if (sourceMtime <= newestExisting.stat.mtime) {
+          continue;
         }
-        // Source was modified - delete old note to re-sync
-        await app.vault.delete(existingFile);
+        
+        // Delete ALL old versions with this session ID
+        for (const oldFile of existingFiles) {
+          await app.vault.delete(oldFile);
+        }
       }
       
       const markdown = generateMarkdown(meta, messages);
@@ -65,7 +78,11 @@ export async function syncCursor(app: App, homeDir: string, outputFolder: string
 function parseTranscript(filePath: string): { meta: SessionMeta; messages: Message[] } {
   const content = fs.readFileSync(filePath, 'utf-8');
   const stat = fs.statSync(filePath);
-  const mtime = new Date(stat.mtime);
+  
+  // Use birthtime (creation time) for stable filenames, fallback to mtime
+  const createdAt = stat.birthtime && stat.birthtime.getTime() > 0 
+    ? stat.birthtime 
+    : stat.mtime;
   
   // Extract project name from path
   const pathParts = filePath.split(path.sep);
@@ -81,8 +98,8 @@ function parseTranscript(filePath: string): { meta: SessionMeta; messages: Messa
   
   const meta: SessionMeta = {
     sessionId: path.basename(filePath, '.txt').slice(0, 8),
-    date: mtime.toISOString().split('T')[0],
-    time: mtime.toTimeString().slice(0, 5),
+    date: createdAt.toISOString().split('T')[0],
+    time: createdAt.toTimeString().slice(0, 5),
     project: project
   };
   
