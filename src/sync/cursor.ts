@@ -61,15 +61,18 @@ export async function syncCursor(app: App, homeDir: string, outputFolder: string
         // APPEND MODE: Read existing note, count messages, append only new ones
         const existingContent = await app.vault.read(existingFile);
         
-        // Count existing message blocks
-        const userMatches = existingContent.match(/## 👤 User/g) || [];
-        const assistantMatches = existingContent.match(/## 🤖 Cursor/g) || [];
-        const existingMsgCount = userMatches.length + assistantMatches.length;
-        const newMsgCount = messages.length;
+        // Count by user exchanges (headers at line start only to avoid false matches in content)
+        const existingUserCount = (existingContent.match(/^## 👤 User$/gm) || []).length;
+        const sourceUserCount = messages.filter(m => m.role === 'user').length;
         
-        if (newMsgCount > existingMsgCount) {
-          // Append only NEW messages
-          const newMessages = messages.slice(existingMsgCount);
+        if (sourceUserCount > existingUserCount) {
+          // Find new exchanges: messages after the last synced user exchange
+          const newMessages: Message[] = [];
+          let userIdx = 0;
+          for (const msg of messages) {
+            if (msg.role === 'user') userIdx++;
+            if (userIdx > existingUserCount) newMessages.push(msg);
+          }
           
           let appendContent = '';
           for (const msg of newMessages) {
@@ -144,8 +147,8 @@ function parseTranscript(filePath: string): { meta: SessionMeta; messages: Messa
   const messages: Message[] = [];
   
   // Parse the transcript format
-  // Format: "user:\n...\n\nA:\n..."
-  const parts = content.split(/\n(?=user:|\nA:)/);
+    // Format: "user:\n...\n\nassistant:\n..."
+  const parts = content.split(/\n(?=user:)|(?<=\n)\n(?=assistant:)/);
   
   for (const part of parts) {
     const trimmed = part.trim();
@@ -170,8 +173,8 @@ function parseTranscript(filePath: string): { meta: SessionMeta; messages: Messa
         messages.push({ role: 'user', content: text });
       }
     }
-    else if (trimmed.startsWith('A:') || trimmed.startsWith('\nA:')) {
-      let text = trimmed.replace(/^A:/, '').replace(/^\nA:/, '').trim();
+    else if (trimmed.startsWith('assistant:')) {
+      let text = trimmed.replace(/^assistant:/, '').trim();
       
       // Clean up tool calls for readability
       text = text
