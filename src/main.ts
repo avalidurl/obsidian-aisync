@@ -12,6 +12,7 @@ import { CopilotAdapter } from './sync/adapters/copilot';
 import { CodexAdapter } from './sync/adapters/codex';
 import { OpenCodeAdapter } from './sync/adapters/opencode';
 import { BaseAdapter } from './sync/base-adapter';
+import { IndexGenerator } from './index-generator';
 import * as os from 'os';
 
 export default class AISyncPlugin extends Plugin {
@@ -53,6 +54,16 @@ export default class AISyncPlugin extends Plugin {
         this.detectedTools = detectInstalledTools(os.homedir());
         const installed = this.detectedTools.filter(t => t.installed);
         new Notice(`🔍 Found ${installed.length} AI tools: ${installed.map(t => t.name).join(', ')}`);
+      }
+    });
+
+    this.addCommand({
+      id: 'regenerate-index',
+      name: 'Regenerate sessions index',
+      callback: async () => {
+        const generator = new IndexGenerator(this.app, this.settings.outputFolder);
+        await generator.generate();
+        new Notice('📋 Index regenerated');
       }
     });
 
@@ -160,6 +171,14 @@ export default class AISyncPlugin extends Plugin {
       this.settings.lastSync = new Date().toLocaleTimeString();
       await this.saveSettings();
       this.updateStatusBar();
+
+      // Regenerate index
+      try {
+        const generator = new IndexGenerator(this.app, this.settings.outputFolder);
+        await generator.generate();
+      } catch (e) {
+        console.error('[AI Sync] Index generation failed:', e);
+      }
 
       // Show results
       if (!silent || totalSynced > 0) {
