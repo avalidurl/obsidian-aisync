@@ -6,14 +6,18 @@ import { TOOL_CONFIGS, ToolType, DetectedTool } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
 
+export interface DetectionOptions {
+  includeSubagents?: boolean;
+}
+
 /**
  * Detect installed AI tools and count their sessions
  */
-export function detectInstalledTools(homeDir: string): DetectedTool[] {
+export function detectInstalledTools(homeDir: string, options: DetectionOptions = {}): DetectedTool[] {
   const detected: DetectedTool[] = [];
 
   for (const config of TOOL_CONFIGS) {
-    const result = detectTool(homeDir, config);
+    const result = detectTool(homeDir, config, options);
     detected.push(result);
   }
 
@@ -27,7 +31,7 @@ export function detectInstalledTools(homeDir: string): DetectedTool[] {
 /**
  * Detect a single tool
  */
-function detectTool(homeDir: string, config: typeof TOOL_CONFIGS[number]): DetectedTool {
+function detectTool(homeDir: string, config: typeof TOOL_CONFIGS[number], options: DetectionOptions): DetectedTool {
   let dataPath = '';
   let sessionCount = 0;
   let installed = false;
@@ -41,7 +45,7 @@ function detectTool(homeDir: string, config: typeof TOOL_CONFIGS[number]): Detec
 
       // Count sessions based on tool type
       if (config.type === 'claude-code') {
-        sessionCount = countClaudeJsonlFiles(fullPath);
+        sessionCount = countClaudeJsonlFiles(fullPath, options.includeSubagents ?? false);
       } else if (config.type === 'cursor') {
         sessionCount = countTranscriptFiles(fullPath);
       } else if (config.type === 'copilot') {
@@ -67,9 +71,9 @@ function detectTool(homeDir: string, config: typeof TOOL_CONFIGS[number]): Detec
 }
 
 /**
- * Count Claude JSONL files (excluding subagent directories)
+ * Count Claude JSONL files (optionally including subagent directories)
  */
-function countClaudeJsonlFiles(dir: string): number {
+function countClaudeJsonlFiles(dir: string, includeSubagents: boolean): number {
   let count = 0;
 
   function walk(currentDir: string) {
@@ -78,8 +82,8 @@ function countClaudeJsonlFiles(dir: string): number {
       for (const entry of entries) {
         const fullPath = path.join(currentDir, entry.name);
         if (entry.isDirectory()) {
-          // Skip subagent directories - they're sub-tasks, not main sessions
-          if (entry.name !== 'subagents') {
+          // Skip subagent directories unless includeSubagents is true
+          if (includeSubagents || entry.name !== 'subagents') {
             walk(fullPath);
           }
         } else if (entry.name.endsWith('.jsonl')) {

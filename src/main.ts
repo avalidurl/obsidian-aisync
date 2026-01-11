@@ -25,7 +25,9 @@ export default class AISyncPlugin extends Plugin {
     await this.loadSettings();
 
     // Detect installed tools on load
-    this.detectedTools = detectInstalledTools(os.homedir());
+    this.detectedTools = detectInstalledTools(os.homedir(), {
+      includeSubagents: this.settings.includeSubagents
+    });
 
     // Auto-enable detected tools if enabledTools is empty (first run)
     if (this.settings.enabledTools.length === 0) {
@@ -51,7 +53,9 @@ export default class AISyncPlugin extends Plugin {
       id: 'detect-ai-tools',
       name: 'Re-detect installed AI tools',
       callback: () => {
-        this.detectedTools = detectInstalledTools(os.homedir());
+        this.detectedTools = detectInstalledTools(os.homedir(), {
+          includeSubagents: this.settings.includeSubagents
+        });
         const installed = this.detectedTools.filter(t => t.installed);
         new Notice(`🔍 Found ${installed.length} AI tools: ${installed.map(t => t.name).join(', ')}`);
       }
@@ -325,6 +329,11 @@ class AISyncSettingTab extends PluginSettingTab {
         .onChange(async (value) => {
           this.plugin.settings.includeSubagents = value;
           await this.plugin.saveSettings();
+          // Re-detect to update session counts
+          this.plugin.detectedTools = detectInstalledTools(os.homedir(), {
+            includeSubagents: value
+          });
+          this.display(); // Refresh UI to show updated counts
         }));
 
     // Auto-sync
@@ -368,7 +377,9 @@ class AISyncSettingTab extends PluginSettingTab {
       .addButton(button => button
         .setButtonText('Detect')
         .onClick(() => {
-          this.plugin.detectedTools = detectInstalledTools(os.homedir());
+          this.plugin.detectedTools = detectInstalledTools(os.homedir(), {
+            includeSubagents: this.plugin.settings.includeSubagents
+          });
           new Notice(`🔍 Detection complete`);
           this.display(); // Refresh UI
         }));
