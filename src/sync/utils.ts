@@ -2,6 +2,20 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
+ * Footer marker used in all sync adapters for append mode.
+ * This marker identifies the sync footer so new messages can be inserted before it.
+ */
+export const SYNC_FOOTER_MARKER = '\n---\n*🔌 Synced via Obsidian Plugin';
+
+/**
+ * Generate the full sync footer with timestamp
+ */
+export function generateSyncFooter(): string {
+  const syncTime = new Date().toISOString();
+  return `${SYNC_FOOTER_MARKER} at ${syncTime} — secrets redacted*\n`;
+}
+
+/**
  * Recursively find all .jsonl files in a directory
  */
 export function findJsonlFiles(dir: string): string[] {

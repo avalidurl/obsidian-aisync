@@ -38,21 +38,67 @@ export async function syncContinue(app: App, homeDir: string, outputFolder: stri
     
     const filename = `continue-${session.date}-${session.time.replace(':', '')}-${session.sessionId}.md`;
     const filePath = `${outputDir}/${filename}`;
-    
-    const existingFile = app.vault.getAbstractFileByPath(filePath);
-    if (existingFile) {
-      try {
-        const sourceMtime = fs.statSync(sessionFile).mtime.getTime();
-        const outputStat = await app.vault.adapter.stat(filePath);
-        if (outputStat && sourceMtime <= outputStat.mtime) {
-          continue;
-        }
-        await app.vault.delete(existingFile);
-      } catch {
+
+    // Find any existing file with same session ID
+    const sessionId = session.sessionId;
+    const existingFiles = app.vault.getFiles().filter(f =>
+      f.path.startsWith(outputDir) &&
+      f.path.includes(sessionId) &&
+      f.extension === 'md'
+    );
+
+    const sourceMtime = fs.statSync(sessionFile).mtime.getTime();
+
+    if (existingFiles.length > 0) {
+      const existingFile = existingFiles.find(f => f.name === filename) || existingFiles[0];
+
+      if (sourceMtime <= existingFile.stat.mtime) {
         continue;
       }
+
+      // APPEND MODE
+      const existingContent = await app.vault.read(existingFile);
+      const existingUserCount = (existingContent.match(/^## 👤 User$/gm) || []).length;
+      const sourceUserCount = session.messages.filter(m => m.role === 'user').length;
+
+      if (sourceUserCount > existingUserCount) {
+        const newMessages: Message[] = [];
+        let userIdx = 0;
+        for (const msg of session.messages) {
+          if (msg.role === 'user') userIdx++;
+          if (userIdx > existingUserCount) newMessages.push(msg);
+        }
+
+        let appendContent = '';
+        for (const msg of newMessages) {
+          const content = redactSecrets(msg.content);
+          if (!content || !content.trim()) continue;
+
+          if (msg.role === 'user') {
+            appendContent += `## 👤 User\n\n${content}\n\n---\n\n`;
+          } else {
+            appendContent += `## 🔄 Continue\n\n${content}\n\n---\n\n`;
+          }
+        }
+
+        if (appendContent) {
+          const footerMarker = '\n---\n*🔌 Synced via Obsidian Plugin';
+          let updatedContent: string;
+
+          if (existingContent.includes(footerMarker)) {
+            updatedContent = existingContent.replace(footerMarker, appendContent + footerMarker);
+          } else {
+            updatedContent = existingContent + '\n' + appendContent;
+          }
+
+          await app.vault.modify(existingFile, updatedContent);
+          syncedCount++;
+        }
+      }
+      continue;
     }
-    
+
+    // New session - create file
     try {
       const markdown = generateMarkdown(session);
       await app.vault.create(filePath, markdown);

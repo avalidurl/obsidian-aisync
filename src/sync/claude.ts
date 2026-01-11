@@ -67,40 +67,43 @@ export async function syncClaudeCode(app: App, homeDir: string, outputFolder: st
         
         // APPEND MODE: Read existing note, count messages, append only new ones
         const existingContent = await app.vault.read(existingFile);
-        
-        // Count existing message blocks
-        const userMatches = existingContent.match(/## 👤 User/g) || [];
-        const assistantMatches = existingContent.match(/## 🤖 Claude Code/g) || [];
-        const existingMsgCount = userMatches.length + assistantMatches.length;
-        const newMsgCount = messages.length;
-        
-        if (newMsgCount > existingMsgCount) {
-          // Append only NEW messages
-          const newMessages = messages.slice(existingMsgCount);
-          
+
+        // Count by user exchanges (headers at line start only to avoid false matches in content)
+        const existingUserCount = (existingContent.match(/^## 👤 User$/gm) || []).length;
+        const sourceUserCount = messages.filter(m => m.role === 'user').length;
+
+        if (sourceUserCount > existingUserCount) {
+          // Find new exchanges: messages after the last synced user exchange
+          const newMessages: Message[] = [];
+          let userIdx = 0;
+          for (const msg of messages) {
+            if (msg.role === 'user') userIdx++;
+            if (userIdx > existingUserCount) newMessages.push(msg);
+          }
+
           let appendContent = '';
           for (const msg of newMessages) {
             const content = redactSecrets(msg.content);
             if (!content || !content.trim()) continue;
-            
+
             if (msg.role === 'user') {
               appendContent += `## 👤 User\n\n${content}\n\n---\n\n`;
             } else if (msg.role === 'assistant') {
               appendContent += `## 🤖 Claude Code\n\n${content}\n\n---\n\n`;
             }
           }
-          
+
           if (appendContent) {
             // Find footer and insert before it, or append at end
             const footerMarker = '\n---\n*🔌 Synced';
             let updatedContent: string;
-            
+
             if (existingContent.includes(footerMarker)) {
               updatedContent = existingContent.replace(footerMarker, appendContent + footerMarker);
             } else {
               updatedContent = existingContent + '\n' + appendContent;
             }
-            
+
             await app.vault.modify(existingFile, updatedContent);
             syncedCount++;
           }
@@ -131,7 +134,7 @@ function parseSession(filePath: string): { meta: SessionMeta; messages: Message[
     : stat.mtime;
   
   const meta: SessionMeta = {
-    sessionId: path.basename(filePath, '.jsonl').slice(0, 8),
+    sessionId: path.basename(filePath, '.jsonl').slice(0, 12),
     date: createdAt.toISOString().split('T')[0],
     time: createdAt.toTimeString().slice(0, 5),
     cwd: '',
@@ -147,7 +150,7 @@ function parseSession(filePath: string): { meta: SessionMeta; messages: Message[
       
       // Extract session metadata
       if (entry.sessionId) {
-        meta.sessionId = (entry.sessionId as string).slice(0, 8);
+        meta.sessionId = (entry.sessionId as string).slice(0, 12);
       }
       
       // Prefer timestamp from JSONL data over file birthtime
@@ -258,7 +261,7 @@ summary: "${firstUserMsg.replace(/"/g, '\\"')}..."
     if (msg.role === 'user') {
       md += `## 👤 User\n\n${content}\n\n---\n\n`;
     } else if (msg.role === 'assistant') {
-      md += `## 🤖 Claude\n\n${content}\n\n---\n\n`;
+      md += `## 🤖 Claude Code\n\n${content}\n\n---\n\n`;
     }
   }
 

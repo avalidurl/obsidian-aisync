@@ -138,7 +138,7 @@ function parseTranscript(filePath: string): { meta: SessionMeta; messages: Messa
   }
   
   const meta: SessionMeta = {
-    sessionId: path.basename(filePath, '.txt').slice(0, 8),
+    sessionId: path.basename(filePath, '.txt').slice(0, 12),
     date: createdAt.toISOString().split('T')[0],
     time: createdAt.toTimeString().slice(0, 5),
     project: project

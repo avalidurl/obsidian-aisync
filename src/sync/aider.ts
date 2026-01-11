@@ -1,8 +1,8 @@
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { redactSecrets } from './redact';
+import { SYNC_FOOTER_MARKER, generateSyncFooter } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
 
 interface AiderSession {
   date: string;
@@ -54,18 +54,76 @@ export async function syncAider(app: App, homeDir: string, outputFolder: string)
     for (let i = 0; i < sessions.length; i++) {
       const session = sessions[i];
       if (session.messages.length === 0) continue;
-      
-      const contentHash = crypto.createHash('md5')
-        .update(JSON.stringify(session.messages))
-        .digest('hex')
-        .slice(0, 8);
-      
-      const filename = `aider-${session.date}-${project.toLowerCase().slice(0, 20)}-${String(i + 1).padStart(3, '0')}-${contentHash}.md`;
+
+      // Use stable session identifier based on date, project, and index
+      const projectSlug = project.toLowerCase().slice(0, 20).replace(/[^a-z0-9-]/g, '-');
+      const sessionId = `${session.date}-${projectSlug}-${String(i + 1).padStart(3, '0')}`;
+      const filename = `aider-${sessionId}.md`;
       const filePath = `${outputDir}/${filename}`;
-      
-      const existingFile = app.vault.getAbstractFileByPath(filePath);
-      if (existingFile) continue;
-      
+
+      // Find any existing file with same session identifier
+      const existingFiles = app.vault.getFiles().filter(f =>
+        f.path.startsWith(outputDir) &&
+        f.path.includes(sessionId) &&
+        f.extension === 'md'
+      );
+
+      const sourceMtime = fs.statSync(historyFile).mtime.getTime();
+
+      // Check if we need to update
+      if (existingFiles.length > 0) {
+        const existingFile = existingFiles.find(f => f.name === filename) || existingFiles[0];
+
+        // Skip if source hasn't changed since last sync
+        if (sourceMtime <= existingFile.stat.mtime) {
+          continue;
+        }
+
+        // APPEND MODE: Read existing note, count messages, append only new ones
+        const existingContent = await app.vault.read(existingFile);
+
+        // Count by user exchanges (headers at line start only)
+        const existingUserCount = (existingContent.match(/^## 👤 User$/gm) || []).length;
+        const sourceUserCount = session.messages.filter(m => m.role === 'user').length;
+
+        if (sourceUserCount > existingUserCount) {
+          // Find new exchanges: messages after the last synced user exchange
+          const newMessages: Message[] = [];
+          let userIdx = 0;
+          for (const msg of session.messages) {
+            if (msg.role === 'user') userIdx++;
+            if (userIdx > existingUserCount) newMessages.push(msg);
+          }
+
+          let appendContent = '';
+          for (const msg of newMessages) {
+            const content = redactSecrets(msg.content);
+            if (!content || !content.trim()) continue;
+
+            if (msg.role === 'user') {
+              appendContent += `## 👤 User\n\n${content}\n\n---\n\n`;
+            } else {
+              appendContent += `## 🔧 Aider\n\n${content}\n\n---\n\n`;
+            }
+          }
+
+          if (appendContent) {
+            let updatedContent: string;
+
+            if (existingContent.includes(SYNC_FOOTER_MARKER)) {
+              updatedContent = existingContent.replace(SYNC_FOOTER_MARKER, appendContent + SYNC_FOOTER_MARKER);
+            } else {
+              updatedContent = existingContent + '\n' + appendContent;
+            }
+
+            await app.vault.modify(existingFile, updatedContent);
+            syncedCount++;
+          }
+        }
+        continue;
+      }
+
+      // New session - create file
       try {
         const markdown = generateMarkdown(session, project, i + 1);
         await app.vault.create(filePath, markdown);
@@ -210,8 +268,7 @@ summary: "${firstUserMsg.replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
     }
   }
 
-  const syncTime = new Date().toISOString();
-  md += `\n---\n*🔌 Synced via Obsidian Plugin at ${syncTime} — secrets redacted*\n`;
-  
+  md += generateSyncFooter();
+
   return md;
 }

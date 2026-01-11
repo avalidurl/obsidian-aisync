@@ -11,6 +11,7 @@ import { syncRooCode } from './sync/roo';
 import { syncWindsurf } from './sync/windsurf';
 import { syncZedAi } from './sync/zed';
 import { syncAmp } from './sync/amp';
+import { syncOpenCode } from './sync/opencode';
 import * as os from 'os';
 
 interface AISyncSettings {
@@ -29,6 +30,7 @@ interface AISyncSettings {
   windsurfEnabled: boolean;
   zedEnabled: boolean;
   ampEnabled: boolean;
+  opencodeEnabled: boolean;
   // Auto-sync
   autoSyncInterval: number;
   lastSync: string;
@@ -48,6 +50,7 @@ const DEFAULT_SETTINGS: AISyncSettings = {
   windsurfEnabled: true,
   zedEnabled: true,
   ampEnabled: true,
+  opencodeEnabled: true,
   autoSyncInterval: 0,
   lastSync: ''
 };
@@ -73,6 +76,7 @@ const PROVIDERS: SyncProvider[] = [
   { name: 'Windsurf', key: 'windsurfEnabled', folder: 'windsurf-sessions', sync: syncWindsurf, desc: 'Codeium/Windsurf app' },
   { name: 'Zed AI', key: 'zedEnabled', folder: 'zed-ai-sessions', sync: syncZedAi, desc: '~/.config/zed/conversations/' },
   { name: 'Amp', key: 'ampEnabled', folder: 'amp-sessions', sync: syncAmp, desc: 'Sourcegraph Cody' },
+  { name: 'OpenCode', key: 'opencodeEnabled', folder: 'opencode-sessions', sync: syncOpenCode, desc: '.opencode/opencode.db' },
 ];
 
 export default class AISyncPlugin extends Plugin {

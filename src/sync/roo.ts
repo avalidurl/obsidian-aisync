@@ -47,21 +47,67 @@ export async function syncRooCode(app: App, homeDir: string, outputFolder: strin
       
       const filename = `roo-code-${task.date}-${task.time.replace(':', '')}-${task.taskId}.md`;
       const filePath = `${outputDir}/${filename}`;
-      
-      const existingFile = app.vault.getAbstractFileByPath(filePath);
-      if (existingFile) {
-        try {
-          const sourceMtime = fs.statSync(taskDir).mtime.getTime();
-          const outputStat = await app.vault.adapter.stat(filePath);
-          if (outputStat && sourceMtime <= outputStat.mtime) {
-            continue;
-          }
-          await app.vault.delete(existingFile);
-        } catch {
+
+      // Find any existing file with same task ID
+      const taskId = task.taskId;
+      const existingFiles = app.vault.getFiles().filter(f =>
+        f.path.startsWith(outputDir) &&
+        f.path.includes(taskId) &&
+        f.extension === 'md'
+      );
+
+      const sourceMtime = fs.statSync(taskDir).mtime.getTime();
+
+      if (existingFiles.length > 0) {
+        const existingFile = existingFiles.find(f => f.name === filename) || existingFiles[0];
+
+        if (sourceMtime <= existingFile.stat.mtime) {
           continue;
         }
+
+        // APPEND MODE
+        const existingContent = await app.vault.read(existingFile);
+        const existingUserCount = (existingContent.match(/^## 👤 User$/gm) || []).length;
+        const sourceUserCount = task.messages.filter(m => m.role === 'user').length;
+
+        if (sourceUserCount > existingUserCount) {
+          const newMessages: Message[] = [];
+          let userIdx = 0;
+          for (const msg of task.messages) {
+            if (msg.role === 'user') userIdx++;
+            if (userIdx > existingUserCount) newMessages.push(msg);
+          }
+
+          let appendContent = '';
+          for (const msg of newMessages) {
+            const content = redactSecrets(msg.content);
+            if (!content || !content.trim()) continue;
+
+            if (msg.role === 'user') {
+              appendContent += `## 👤 User\n\n${content}\n\n---\n\n`;
+            } else {
+              appendContent += `## 🦘 Roo Code\n\n${content}\n\n---\n\n`;
+            }
+          }
+
+          if (appendContent) {
+            const footerMarker = '\n---\n*🔌 Synced via Obsidian Plugin';
+            let updatedContent: string;
+
+            if (existingContent.includes(footerMarker)) {
+              updatedContent = existingContent.replace(footerMarker, appendContent + footerMarker);
+            } else {
+              updatedContent = existingContent + '\n' + appendContent;
+            }
+
+            await app.vault.modify(existingFile, updatedContent);
+            syncedCount++;
+          }
+        }
+        continue;
       }
-      
+
+      // New session - create file
       try {
         const markdown = generateMarkdown(task);
         await app.vault.create(filePath, markdown);

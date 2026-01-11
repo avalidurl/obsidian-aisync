@@ -28,36 +28,92 @@ interface ContentItem {
 export async function syncCodex(app: App, homeDir: string, outputFolder: string): Promise<number> {
   const codexDir = path.join(homeDir, '.codex', 'sessions');
   const outputDir = `${outputFolder}/codex-sessions`;
-  
+
   if (!fs.existsSync(codexDir)) {
     return 0;
   }
-  
+
   let syncedCount = 0;
   const sessionFiles = findJsonlFiles(codexDir);
-  
+
   for (const sessionFile of sessionFiles) {
     try {
       const { meta, messages } = parseSession(sessionFile);
-      
+
       if (messages.length === 0) continue;
-      
+
       const filename = `codex-${meta.date}-${meta.time.replace(':', '')}-${meta.sessionId}.md`;
       const filePath = `${outputDir}/${filename}`;
-      
-      // Check if already synced AND source hasn't been modified
-      // This ensures continuing sessions get updated with new messages
-      const existingFile = app.vault.getAbstractFileByPath(filePath);
-      if (existingFile) {
-        const sourceMtime = fs.statSync(sessionFile).mtime.getTime();
-        const outputStat = await app.vault.adapter.stat(filePath);
-        if (outputStat && sourceMtime <= outputStat.mtime) {
-          continue; // Skip - no changes since last sync
+
+      // Find any existing file with same session ID (handles filename changes)
+      const sessionId = meta.sessionId;
+      const existingFiles = app.vault.getFiles().filter(f =>
+        f.path.startsWith(outputDir) &&
+        f.path.includes(sessionId) &&
+        f.extension === 'md'
+      );
+
+      const sourceMtime = fs.statSync(sessionFile).mtime.getTime();
+
+      // Check if we need to update
+      if (existingFiles.length > 0) {
+        // Get the existing file (prefer exact match)
+        const existingFile = existingFiles.find(f => f.name === filename) || existingFiles[0];
+
+        // Skip if source hasn't changed since last sync
+        if (sourceMtime <= existingFile.stat.mtime) {
+          continue;
         }
-        // Source was modified - delete old note to re-sync
-        await app.vault.delete(existingFile);
+
+        // APPEND MODE: Read existing note, count messages, append only new ones
+        const existingContent = await app.vault.read(existingFile);
+
+        // Count by user exchanges (headers at line start only to avoid false matches in content)
+        const existingUserCount = (existingContent.match(/^## 👤 User$/gm) || []).length;
+        const sourceUserCount = messages.filter(m => m.role === 'user').length;
+
+        if (sourceUserCount > existingUserCount) {
+          // Find new exchanges: messages after the last synced user exchange
+          const newMessages: Message[] = [];
+          let userIdx = 0;
+          for (const msg of messages) {
+            if (msg.role === 'user') userIdx++;
+            if (userIdx > existingUserCount) newMessages.push(msg);
+          }
+
+          let appendContent = '';
+          for (const msg of newMessages) {
+            const content = redactSecrets(msg.content);
+            if (!content || !content.trim()) continue;
+
+            if (msg.role === 'user') {
+              appendContent += `## 👤 User\n\n${content}\n\n---\n\n`;
+            } else if (msg.role === 'assistant') {
+              appendContent += `## 🤖 Codex\n\n${content}\n\n---\n\n`;
+            } else if (msg.role === 'tool' || msg.role === 'result') {
+              appendContent += `${content}\n\n`;
+            }
+          }
+
+          if (appendContent) {
+            // Find footer and insert before it, or append at end
+            const footerMarker = '\n---\n*🔌 Synced via Obsidian Plugin';
+            let updatedContent: string;
+
+            if (existingContent.includes(footerMarker)) {
+              updatedContent = existingContent.replace(footerMarker, appendContent + footerMarker);
+            } else {
+              updatedContent = existingContent + '\n' + appendContent;
+            }
+
+            await app.vault.modify(existingFile, updatedContent);
+            syncedCount++;
+          }
+        }
+        continue;
       }
-      
+
+      // New session - create file
       const markdown = generateMarkdown(meta, messages);
       await app.vault.create(filePath, markdown);
       syncedCount++;
@@ -65,18 +121,24 @@ export async function syncCodex(app: App, homeDir: string, outputFolder: string)
       console.error(`Error processing ${sessionFile}:`, e);
     }
   }
-  
+
   return syncedCount;
 }
 
 function parseSession(filePath: string): { meta: SessionMeta; messages: Message[] } {
   const content = fs.readFileSync(filePath, 'utf-8');
+  const stat = fs.statSync(filePath);
   const lines = content.split('\n').filter(l => l.trim());
-  
+
+  // Use birthtime (creation time) for stable filenames, fallback to mtime
+  const createdAt = stat.birthtime && stat.birthtime.getTime() > 0
+    ? stat.birthtime
+    : stat.mtime;
+
   const meta: SessionMeta = {
-    sessionId: path.basename(filePath, '.jsonl').slice(0, 8),
-    date: 'unknown',
-    time: '00:00',
+    sessionId: path.basename(filePath, '.jsonl').slice(0, 12),
+    date: createdAt.toISOString().split('T')[0],
+    time: createdAt.toTimeString().slice(0, 5),
     cwd: '',
     version: ''
   };
@@ -91,7 +153,7 @@ function parseSession(filePath: string): { meta: SessionMeta; messages: Message[
       // Extract session metadata from session_meta type
       if (entryType === 'session_meta') {
         const payload = (entry.payload as Record<string, unknown>) || {};
-        if (payload.id) meta.sessionId = (payload.id as string).slice(0, 8);
+        if (payload.id) meta.sessionId = (payload.id as string).slice(0, 12);
         if (payload.timestamp) {
           try {
             const dt = new Date(payload.timestamp as string);

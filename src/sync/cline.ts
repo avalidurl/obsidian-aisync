@@ -54,21 +54,72 @@ export async function syncCline(app: App, homeDir: string, outputFolder: string)
       
       const filename = `cline-${task.date}-${task.time.replace(':', '')}-${task.taskId}.md`;
       const filePath = `${outputDir}/${filename}`;
-      
-      const existingFile = app.vault.getAbstractFileByPath(filePath);
-      if (existingFile) {
-        try {
-          const sourceMtime = fs.statSync(taskDir).mtime.getTime();
-          const outputStat = await app.vault.adapter.stat(filePath);
-          if (outputStat && sourceMtime <= outputStat.mtime) {
-            continue;
-          }
-          await app.vault.delete(existingFile);
-        } catch {
+
+      // Find any existing file with same task ID (handles filename changes)
+      const taskId = task.taskId;
+      const existingFiles = app.vault.getFiles().filter(f =>
+        f.path.startsWith(outputDir) &&
+        f.path.includes(taskId) &&
+        f.extension === 'md'
+      );
+
+      const sourceMtime = fs.statSync(taskDir).mtime.getTime();
+
+      // Check if we need to update
+      if (existingFiles.length > 0) {
+        const existingFile = existingFiles.find(f => f.name === filename) || existingFiles[0];
+
+        // Skip if source hasn't changed since last sync
+        if (sourceMtime <= existingFile.stat.mtime) {
           continue;
         }
+
+        // APPEND MODE: Read existing note, count messages, append only new ones
+        const existingContent = await app.vault.read(existingFile);
+
+        // Count by user exchanges (headers at line start only)
+        const existingUserCount = (existingContent.match(/^## 👤 User$/gm) || []).length;
+        const sourceUserCount = task.messages.filter(m => m.role === 'user').length;
+
+        if (sourceUserCount > existingUserCount) {
+          // Find new exchanges: messages after the last synced user exchange
+          const newMessages: Message[] = [];
+          let userIdx = 0;
+          for (const msg of task.messages) {
+            if (msg.role === 'user') userIdx++;
+            if (userIdx > existingUserCount) newMessages.push(msg);
+          }
+
+          let appendContent = '';
+          for (const msg of newMessages) {
+            const content = redactSecrets(msg.content);
+            if (!content || !content.trim()) continue;
+
+            if (msg.role === 'user') {
+              appendContent += `## 👤 User\n\n${content}\n\n---\n\n`;
+            } else {
+              appendContent += `## 🤖 Cline\n\n${content}\n\n---\n\n`;
+            }
+          }
+
+          if (appendContent) {
+            const footerMarker = '\n---\n*🔌 Synced via Obsidian Plugin';
+            let updatedContent: string;
+
+            if (existingContent.includes(footerMarker)) {
+              updatedContent = existingContent.replace(footerMarker, appendContent + footerMarker);
+            } else {
+              updatedContent = existingContent + '\n' + appendContent;
+            }
+
+            await app.vault.modify(existingFile, updatedContent);
+            syncedCount++;
+          }
+        }
+        continue;
       }
-      
+
+      // New session - create file
       try {
         const markdown = generateMarkdown(task);
         await app.vault.create(filePath, markdown);
