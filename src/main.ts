@@ -323,7 +323,7 @@ class AISyncSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Include subagent sessions')
-      .setDesc('Include Claude Code subagent sessions (automated sub-tasks spawned by main sessions)')
+      .setDesc('Sync Claude Code subagent sessions (automated sub-tasks). When off, new subagents won\'t sync but existing ones remain in your vault.')
       .addToggle(toggle => toggle
         .setValue(this.plugin.settings.includeSubagents)
         .onChange(async (value) => {
