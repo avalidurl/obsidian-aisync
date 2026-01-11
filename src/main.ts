@@ -1,110 +1,65 @@
+/**
+ * AI Sync Plugin v2.0
+ * Syncs AI coding sessions from 5 core tools to Obsidian
+ */
+
 import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import { syncClaudeCode } from './sync/claude';
-import { syncCodex } from './sync/codex';
-import { syncCursor } from './sync/cursor';
-import { syncAider } from './sync/aider';
-import { syncCline } from './sync/cline';
-import { syncGeminiCli } from './sync/gemini';
-import { syncContinue } from './sync/continue';
-import { syncCopilotChat } from './sync/copilot';
-import { syncRooCode } from './sync/roo';
-import { syncWindsurf } from './sync/windsurf';
-import { syncZedAi } from './sync/zed';
-import { syncAmp } from './sync/amp';
-import { syncOpenCode } from './sync/opencode';
+import { AISyncSettings, DEFAULT_SETTINGS, ToolType, DetectedTool } from './types';
+import { detectInstalledTools, getEnabledTools } from './settings/detection';
+import { ClaudeAdapter } from './sync/adapters/claude';
+import { CursorAdapter } from './sync/adapters/cursor';
+import { CopilotAdapter } from './sync/adapters/copilot';
+import { CodexAdapter } from './sync/adapters/codex';
+import { OpenCodeAdapter } from './sync/adapters/opencode';
+import { BaseAdapter } from './sync/base-adapter';
 import * as os from 'os';
-
-interface AISyncSettings {
-  outputFolder: string;
-  // Core providers
-  claudeEnabled: boolean;
-  codexEnabled: boolean;
-  cursorEnabled: boolean;
-  // Additional providers
-  aiderEnabled: boolean;
-  clineEnabled: boolean;
-  geminiEnabled: boolean;
-  continueEnabled: boolean;
-  copilotEnabled: boolean;
-  rooEnabled: boolean;
-  windsurfEnabled: boolean;
-  zedEnabled: boolean;
-  ampEnabled: boolean;
-  opencodeEnabled: boolean;
-  // Auto-sync
-  autoSyncInterval: number;
-  lastSync: string;
-}
-
-const DEFAULT_SETTINGS: AISyncSettings = {
-  outputFolder: 'ai-sessions',
-  claudeEnabled: true,
-  codexEnabled: true,
-  cursorEnabled: true,
-  aiderEnabled: true,
-  clineEnabled: true,
-  geminiEnabled: true,
-  continueEnabled: true,
-  copilotEnabled: true,
-  rooEnabled: true,
-  windsurfEnabled: true,
-  zedEnabled: true,
-  ampEnabled: true,
-  opencodeEnabled: true,
-  autoSyncInterval: 0,
-  lastSync: ''
-};
-
-interface SyncProvider {
-  name: string;
-  key: keyof AISyncSettings;
-  folder: string;
-  sync: (app: App, homeDir: string, outputFolder: string) => Promise<number>;
-  desc: string;
-}
-
-const PROVIDERS: SyncProvider[] = [
-  { name: 'Claude Code', key: 'claudeEnabled', folder: 'claude-code-sessions', sync: syncClaudeCode, desc: '~/.claude/projects/' },
-  { name: 'Codex CLI', key: 'codexEnabled', folder: 'codex-sessions', sync: syncCodex, desc: '~/.codex/sessions/' },
-  { name: 'Cursor', key: 'cursorEnabled', folder: 'cursor-sessions', sync: syncCursor, desc: '~/.cursor/projects/' },
-  { name: 'Aider', key: 'aiderEnabled', folder: 'aider-sessions', sync: syncAider, desc: '~/.aider.chat.history.md' },
-  { name: 'Cline', key: 'clineEnabled', folder: 'cline-sessions', sync: syncCline, desc: 'VS Code globalStorage' },
-  { name: 'Gemini CLI', key: 'geminiEnabled', folder: 'gemini-cli-sessions', sync: syncGeminiCli, desc: '~/.gemini/' },
-  { name: 'Continue.dev', key: 'continueEnabled', folder: 'continue-sessions', sync: syncContinue, desc: '~/.continue/sessions/' },
-  { name: 'GitHub Copilot', key: 'copilotEnabled', folder: 'copilot-chat-sessions', sync: syncCopilotChat, desc: 'VS Code globalStorage' },
-  { name: 'Roo Code', key: 'rooEnabled', folder: 'roo-code-sessions', sync: syncRooCode, desc: 'VS Code globalStorage' },
-  { name: 'Windsurf', key: 'windsurfEnabled', folder: 'windsurf-sessions', sync: syncWindsurf, desc: 'Codeium/Windsurf app' },
-  { name: 'Zed AI', key: 'zedEnabled', folder: 'zed-ai-sessions', sync: syncZedAi, desc: '~/.config/zed/conversations/' },
-  { name: 'Amp', key: 'ampEnabled', folder: 'amp-sessions', sync: syncAmp, desc: 'Sourcegraph Cody' },
-  { name: 'OpenCode', key: 'opencodeEnabled', folder: 'opencode-sessions', sync: syncOpenCode, desc: '.opencode/opencode.db' },
-];
 
 export default class AISyncPlugin extends Plugin {
   settings: AISyncSettings;
+  detectedTools: DetectedTool[] = [];
   autoSyncIntervalId: number | null = null;
   statusBarItem: HTMLElement | null = null;
 
   async onload() {
     await this.loadSettings();
 
+    // Detect installed tools on load
+    this.detectedTools = detectInstalledTools(os.homedir());
+
+    // Auto-enable detected tools if enabledTools is empty (first run)
+    if (this.settings.enabledTools.length === 0) {
+      this.settings.enabledTools = this.detectedTools
+        .filter(t => t.installed)
+        .map(t => t.type);
+      await this.saveSettings();
+    }
+
     // Add ribbon icon
     this.addRibbonIcon('refresh-cw', 'Sync AI sessions', async () => {
       await this.runSync();
     });
 
-    // Add command
+    // Add commands
     this.addCommand({
       id: 'sync-ai-sessions',
       name: 'Sync AI sessions now',
+      callback: () => void this.runSync()
+    });
+
+    this.addCommand({
+      id: 'detect-ai-tools',
+      name: 'Re-detect installed AI tools',
       callback: () => {
-        void this.runSync();
+        this.detectedTools = detectInstalledTools(os.homedir());
+        const installed = this.detectedTools.filter(t => t.installed);
+        new Notice(`🔍 Found ${installed.length} AI tools: ${installed.map(t => t.name).join(', ')}`);
       }
     });
 
     // Add settings tab
     this.addSettingTab(new AISyncSettingTab(this.app, this));
 
-    // Setup auto-sync if enabled
+    // Setup auto-sync
     this.setupAutoSync();
 
     // Status bar
@@ -114,7 +69,8 @@ export default class AISyncPlugin extends Plugin {
 
   updateStatusBar() {
     if (this.statusBarItem) {
-      this.statusBarItem.setText(this.settings.lastSync ? `AI Sync: ${this.settings.lastSync}` : 'AI Sync: Never');
+      const text = this.settings.lastSync ? `AI Sync: ${this.settings.lastSync}` : 'AI Sync: Never';
+      this.statusBarItem.setText(text);
     }
   }
 
@@ -146,11 +102,33 @@ export default class AISyncPlugin extends Plugin {
     }
   }
 
-  async runSync(silent: boolean = false) {
+  /**
+   * Create adapter instance for a tool type
+   */
+  private createAdapter(toolType: ToolType): BaseAdapter {
     const homeDir = os.homedir();
+    const { outputFolder, organizationMode, minimumMessages } = this.settings;
 
+    switch (toolType) {
+      case 'claude-code':
+        return new ClaudeAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+      case 'cursor':
+        return new CursorAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+      case 'copilot':
+        return new CopilotAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+      case 'codex':
+        return new CodexAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+      case 'opencode':
+        return new OpenCodeAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+      default:
+        throw new Error(`Unknown tool type: ${toolType}`);
+    }
+  }
+
+  async runSync(silent = false) {
     let totalSynced = 0;
     const errors: string[] = [];
+    const results: Array<{ tool: string; count: number }> = [];
 
     if (!silent) {
       new Notice('🔄 Syncing AI sessions...');
@@ -160,16 +138,21 @@ export default class AISyncPlugin extends Plugin {
       // Ensure base output folder exists
       await this.ensureFolder(this.settings.outputFolder);
 
-      // Sync each enabled provider
-      for (const provider of PROVIDERS) {
-        if (!this.settings[provider.key]) continue;
+      // Get enabled tools
+      const enabledTools = getEnabledTools(this.detectedTools, this.settings.enabledTools);
 
+      // Sync each enabled tool
+      for (const tool of enabledTools) {
         try {
-          await this.ensureFolder(`${this.settings.outputFolder}/${provider.folder}`);
-          const count = await provider.sync(this.app, homeDir, this.settings.outputFolder);
+          const adapter = this.createAdapter(tool.type);
+          const count = await adapter.sync();
           totalSynced += count;
+          if (count > 0) {
+            results.push({ tool: tool.name, count });
+          }
         } catch (e) {
-          errors.push(`${provider.name}: ${e}`);
+          errors.push(`${tool.name}: ${e}`);
+          console.error(`[AI Sync] Error syncing ${tool.name}:`, e);
         }
       }
 
@@ -178,26 +161,42 @@ export default class AISyncPlugin extends Plugin {
       await this.saveSettings();
       this.updateStatusBar();
 
+      // Show results
       if (!silent || totalSynced > 0) {
         if (errors.length > 0) {
           new Notice(`⚠️ Synced ${totalSynced} sessions with ${errors.length} errors`);
-        } else {
-          new Notice(`✅ Synced ${totalSynced} new AI sessions`);
+        } else if (totalSynced > 0) {
+          const breakdown = results.map(r => `${r.tool}: ${r.count}`).join(', ');
+          new Notice(`✅ Synced ${totalSynced} sessions (${breakdown})`);
+        } else if (!silent) {
+          new Notice('✅ All sessions up to date');
         }
       }
     } catch (e) {
       new Notice(`❌ Sync failed: ${e}`);
+      console.error('[AI Sync] Sync failed:', e);
     }
   }
 
   async ensureFolder(folderPath: string) {
-    const folder = this.app.vault.getAbstractFileByPath(folderPath);
-    if (!folder) {
-      await this.app.vault.createFolder(folderPath);
+    const parts = folderPath.split('/');
+    let currentPath = '';
+
+    for (const part of parts) {
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      const folder = this.app.vault.getAbstractFileByPath(currentPath);
+      if (!folder) {
+        try {
+          await this.app.vault.createFolder(currentPath);
+        } catch { /* folder may exist */ }
+      }
     }
   }
 }
 
+/**
+ * Settings Tab - Clean, detection-first UI
+ */
 class AISyncSettingTab extends PluginSettingTab {
   plugin: AISyncPlugin;
 
@@ -210,8 +209,48 @@ class AISyncSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
+    // Header
     new Setting(containerEl)
-      .setName('AI sessions sync settings')
+      .setName('AI Sessions Sync')
+      .setDesc('Sync coding sessions from AI tools to Obsidian')
+      .setHeading();
+
+    // Detected Tools Section
+    new Setting(containerEl)
+      .setName('Detected Tools')
+      .setDesc('Tools found on your system')
+      .setHeading();
+
+    for (const tool of this.plugin.detectedTools) {
+      const desc = tool.installed
+        ? `${tool.sessionCount} session${tool.sessionCount !== 1 ? 's' : ''} found`
+        : 'Not installed';
+
+      const setting = new Setting(containerEl)
+        .setName(`${tool.icon} ${tool.name}`)
+        .setDesc(desc);
+
+      if (tool.installed) {
+        setting.addToggle(toggle => toggle
+          .setValue(this.plugin.settings.enabledTools.includes(tool.type))
+          .onChange(async (enabled) => {
+            if (enabled) {
+              if (!this.plugin.settings.enabledTools.includes(tool.type)) {
+                this.plugin.settings.enabledTools.push(tool.type);
+              }
+            } else {
+              this.plugin.settings.enabledTools = this.plugin.settings.enabledTools.filter(t => t !== tool.type);
+            }
+            await this.plugin.saveSettings();
+          }));
+      } else {
+        setting.setClass('mod-disabled');
+      }
+    }
+
+    // Output Settings
+    new Setting(containerEl)
+      .setName('Output')
       .setHeading();
 
     new Setting(containerEl)
@@ -226,53 +265,79 @@ class AISyncSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName('Providers')
-      .setDesc('Enable or disable individual AI tools')
+      .setName('Organization mode')
+      .setDesc('How to organize synced sessions')
+      .addDropdown(dropdown => dropdown
+        .addOption('flat', 'Flat (by tool)')
+        .addOption('by-project', 'By project')
+        .addOption('by-tool', 'By tool then project')
+        .setValue(this.plugin.settings.organizationMode)
+        .onChange(async (value) => {
+          this.plugin.settings.organizationMode = value as 'flat' | 'by-project' | 'by-tool';
+          await this.plugin.saveSettings();
+        }));
+
+    // Filtering
+    new Setting(containerEl)
+      .setName('Filtering')
       .setHeading();
 
-    // Dynamically create settings for each provider
-    for (const provider of PROVIDERS) {
-      new Setting(containerEl)
-        .setName(provider.name)
-        .setDesc(`Sync sessions from ${provider.desc}`)
-        .addToggle(toggle => toggle
-          .setValue(this.plugin.settings[provider.key] as boolean)
-          .onChange(async (value) => {
-            (this.plugin.settings[provider.key] as boolean) = value;
-            await this.plugin.saveSettings();
-          }));
-    }
+    new Setting(containerEl)
+      .setName('Minimum messages')
+      .setDesc('Skip sessions with fewer messages (filter trivial sessions)')
+      .addSlider(slider => slider
+        .setLimits(1, 10, 1)
+        .setValue(this.plugin.settings.minimumMessages)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.minimumMessages = value;
+          await this.plugin.saveSettings();
+        }));
 
+    // Auto-sync
     new Setting(containerEl)
       .setName('Auto-sync')
       .setHeading();
 
     new Setting(containerEl)
       .setName('Auto-sync interval (minutes)')
-      .setDesc('Automatically sync every X minutes (0 = disabled, min 1)')
+      .setDesc('Automatically sync every X minutes (0 = disabled)')
       .addText(text => text
         .setPlaceholder('0')
         .setValue(String(this.plugin.settings.autoSyncInterval))
         .onChange(async (value) => {
           const num = parseInt(value) || 0;
-          // Enforce minimum of 1 minute if enabled, max 1440 (24 hours)
           this.plugin.settings.autoSyncInterval = num <= 0 ? 0 : Math.min(Math.max(num, 1), 1440);
           await this.plugin.saveSettings();
           this.plugin.setupAutoSync();
         }));
 
+    // Actions
     new Setting(containerEl)
-      .setName('Manual sync')
+      .setName('Actions')
       .setHeading();
+
+    const enabledCount = this.plugin.settings.enabledTools.length;
 
     new Setting(containerEl)
       .setName('Sync now')
-      .setDesc(`Manually trigger a sync (${PROVIDERS.length} providers available)`)
+      .setDesc(`Sync sessions from ${enabledCount} enabled tool${enabledCount !== 1 ? 's' : ''}`)
       .addButton(button => button
-        .setButtonText('Sync now')
+        .setButtonText('Sync Now')
         .setCta()
         .onClick(async () => {
           await this.plugin.runSync();
+        }));
+
+    new Setting(containerEl)
+      .setName('Re-detect tools')
+      .setDesc('Scan for newly installed AI tools')
+      .addButton(button => button
+        .setButtonText('Detect')
+        .onClick(() => {
+          this.plugin.detectedTools = detectInstalledTools(os.homedir());
+          new Notice(`🔍 Detection complete`);
+          this.display(); // Refresh UI
         }));
   }
 }
