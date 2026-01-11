@@ -118,19 +118,23 @@ export default class AISyncPlugin extends Plugin {
    */
   private createAdapter(toolType: ToolType): BaseAdapter {
     const homeDir = os.homedir();
-    const { outputFolder, organizationMode, minimumMessages } = this.settings;
+    const options = {
+      organizationMode: this.settings.organizationMode,
+      minimumMessages: this.settings.minimumMessages,
+      includeSubagents: this.settings.includeSubagents
+    };
 
     switch (toolType) {
       case 'claude-code':
-        return new ClaudeAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+        return new ClaudeAdapter(this.app, homeDir, this.settings.outputFolder, options);
       case 'cursor':
-        return new CursorAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+        return new CursorAdapter(this.app, homeDir, this.settings.outputFolder, options);
       case 'copilot':
-        return new CopilotAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+        return new CopilotAdapter(this.app, homeDir, this.settings.outputFolder, options);
       case 'codex':
-        return new CodexAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+        return new CodexAdapter(this.app, homeDir, this.settings.outputFolder, options);
       case 'opencode':
-        return new OpenCodeAdapter(this.app, homeDir, outputFolder, organizationMode, minimumMessages);
+        return new OpenCodeAdapter(this.app, homeDir, this.settings.outputFolder, options);
       default:
         throw new Error(`Unknown tool type: ${toolType}`);
     }
@@ -310,6 +314,16 @@ class AISyncSettingTab extends PluginSettingTab {
         .setDynamicTooltip()
         .onChange(async (value) => {
           this.plugin.settings.minimumMessages = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Include subagent sessions')
+      .setDesc('Include Claude Code subagent sessions (automated sub-tasks spawned by main sessions)')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.includeSubagents)
+        .onChange(async (value) => {
+          this.plugin.settings.includeSubagents = value;
           await this.plugin.saveSettings();
         }));
 

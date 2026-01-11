@@ -3,8 +3,8 @@
  */
 
 import { App } from 'obsidian';
-import { BaseAdapter } from '../base-adapter';
-import { ParsedSession, Message, ToolType, OrganizationMode } from '../../types';
+import { BaseAdapter, AdapterOptions } from '../base-adapter';
+import { ParsedSession, Message, ToolType } from '../../types';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -13,8 +13,8 @@ export class CopilotAdapter extends BaseAdapter {
   readonly toolName = 'GitHub Copilot';
   readonly toolIcon = '🐙';
 
-  constructor(app: App, homeDir: string, outputFolder: string, organizationMode: OrganizationMode = 'flat', minimumMessages = 3) {
-    super(app, homeDir, outputFolder, organizationMode, minimumMessages);
+  constructor(app: App, homeDir: string, outputFolder: string, options: AdapterOptions = {}) {
+    super(app, homeDir, outputFolder, options);
   }
 
   async discoverSessions(): Promise<ParsedSession[]> {

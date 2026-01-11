@@ -3,8 +3,8 @@
  */
 
 import { App } from 'obsidian';
-import { BaseAdapter } from '../base-adapter';
-import { ParsedSession, Message, ToolType, OrganizationMode } from '../../types';
+import { BaseAdapter, AdapterOptions } from '../base-adapter';
+import { ParsedSession, Message, ToolType } from '../../types';
 import { findJsonlFiles } from '../utils';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -14,8 +14,8 @@ export class ClaudeAdapter extends BaseAdapter {
   readonly toolName = 'Claude Code';
   readonly toolIcon = '🤖';
 
-  constructor(app: App, homeDir: string, outputFolder: string, organizationMode: OrganizationMode = 'flat', minimumMessages = 3) {
-    super(app, homeDir, outputFolder, organizationMode, minimumMessages);
+  constructor(app: App, homeDir: string, outputFolder: string, options: AdapterOptions = {}) {
+    super(app, homeDir, outputFolder, options);
   }
 
   async discoverSessions(): Promise<ParsedSession[]> {
@@ -23,7 +23,12 @@ export class ClaudeAdapter extends BaseAdapter {
     if (!fs.existsSync(claudeDir)) return [];
 
     const sessions: ParsedSession[] = [];
-    const jsonlFiles = findJsonlFiles(claudeDir);
+    let jsonlFiles = findJsonlFiles(claudeDir);
+
+    // Filter out subagent files unless includeSubagents is true
+    if (!this.includeSubagents) {
+      jsonlFiles = jsonlFiles.filter(f => !f.includes('/subagents/') && !f.includes('\\subagents\\'));
+    }
 
     for (const filePath of jsonlFiles) {
       try {
@@ -70,6 +75,9 @@ export class ClaudeAdapter extends BaseAdapter {
 
     if (messages.length === 0) return null;
 
+    // Mark if this is a subagent session
+    const isSubagent = filePath.includes('/subagents/') || filePath.includes('\\subagents\\');
+
     return {
       meta: {
         sessionId,
@@ -79,6 +87,7 @@ export class ClaudeAdapter extends BaseAdapter {
         project: this.extractProjectFromPath(workingDir),
         workingDir,
         model,
+        title: isSubagent ? `[Subagent] ${sessionId}` : undefined,
         messageCount: messages.length
       },
       messages,

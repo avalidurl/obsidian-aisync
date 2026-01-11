@@ -8,12 +8,19 @@ import { ParsedSession, Message, SessionMeta, ToolType, OrganizationMode } from 
 import { redactSecrets } from './redact';
 import { SYNC_FOOTER_MARKER, generateSyncFooter } from './utils';
 
+export interface AdapterOptions {
+  organizationMode?: OrganizationMode;
+  minimumMessages?: number;
+  includeSubagents?: boolean;
+}
+
 export abstract class BaseAdapter {
   protected app: App;
   protected homeDir: string;
   protected outputFolder: string;
   protected organizationMode: OrganizationMode;
   protected minimumMessages: number;
+  protected includeSubagents: boolean;
 
   // Abstract properties - each adapter defines these
   abstract readonly toolType: ToolType;
@@ -24,14 +31,14 @@ export abstract class BaseAdapter {
     app: App,
     homeDir: string,
     outputFolder: string,
-    organizationMode: OrganizationMode = 'flat',
-    minimumMessages: number = 3
+    options: AdapterOptions = {}
   ) {
     this.app = app;
     this.homeDir = homeDir;
     this.outputFolder = outputFolder;
-    this.organizationMode = organizationMode;
-    this.minimumMessages = minimumMessages;
+    this.organizationMode = options.organizationMode ?? 'flat';
+    this.minimumMessages = options.minimumMessages ?? 3;
+    this.includeSubagents = options.includeSubagents ?? false;
   }
 
   /**

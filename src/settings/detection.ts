@@ -41,7 +41,7 @@ function detectTool(homeDir: string, config: typeof TOOL_CONFIGS[number]): Detec
 
       // Count sessions based on tool type
       if (config.type === 'claude-code') {
-        sessionCount = countJsonlFiles(fullPath);
+        sessionCount = countClaudeJsonlFiles(fullPath);
       } else if (config.type === 'cursor') {
         sessionCount = countTranscriptFiles(fullPath);
       } else if (config.type === 'copilot') {
@@ -67,7 +67,34 @@ function detectTool(homeDir: string, config: typeof TOOL_CONFIGS[number]): Detec
 }
 
 /**
- * Count JSONL files recursively
+ * Count Claude JSONL files (excluding subagent directories)
+ */
+function countClaudeJsonlFiles(dir: string): number {
+  let count = 0;
+
+  function walk(currentDir: string) {
+    try {
+      const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(currentDir, entry.name);
+        if (entry.isDirectory()) {
+          // Skip subagent directories - they're sub-tasks, not main sessions
+          if (entry.name !== 'subagents') {
+            walk(fullPath);
+          }
+        } else if (entry.name.endsWith('.jsonl')) {
+          count++;
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  walk(dir);
+  return count;
+}
+
+/**
+ * Count JSONL files recursively (for Codex)
  */
 function countJsonlFiles(dir: string): number {
   let count = 0;

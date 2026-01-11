@@ -3,7 +3,7 @@
  */
 
 // Tool types - only the 5 core tools
-export type ToolType = 'claude-code' | 'cursor' | 'copilot' | 'codex' | 'opencode';
+export type ToolType = 'claude-code' | 'cursor' | 'copilot' | 'codex' | 'opencode' | 'amp';
 
 // Tool display configuration
 export interface ToolConfig {
@@ -88,6 +88,7 @@ export interface AISyncSettings {
   // Detection & filtering
   enabledTools: ToolType[];
   minimumMessages: number;
+  includeSubagents: boolean;  // Include Claude subagent sessions
 
   // Auto-sync
   autoSyncInterval: number;
@@ -107,6 +108,7 @@ export const DEFAULT_SETTINGS: AISyncSettings = {
   organizationMode: 'flat',
   enabledTools: [],  // Will be populated by auto-detection
   minimumMessages: 3,
+  includeSubagents: false,  // Exclude subagents by default
   autoSyncInterval: 0,
   weeklyDigestEnabled: false,
   weeklyDigestDay: 1,  // Monday
@@ -155,6 +157,18 @@ export const TOOL_CONFIGS: ToolConfig[] = [
     icon: '⚡',
     dataPaths: ['Documents', 'Projects', 'Code', 'Developer', 'GitHub', 'dev', '.'],
     filePattern: /opencode\.db$/
+  },
+  {
+    type: 'amp',
+    name: 'Amp',
+    icon: '🔊',
+    dataPaths: [
+      'Library/Application Support/Code/User/globalStorage/sourcegraph.cody-ai',
+      'Library/Application Support/Code/User/globalStorage/sourcegraph.amp',
+      'Library/Application Support/Cursor/User/globalStorage/sourcegraph.cody-ai',
+      '.config/Code/User/globalStorage/sourcegraph.cody-ai'
+    ],
+    filePattern: /\.json$/
   }
 ];
 
