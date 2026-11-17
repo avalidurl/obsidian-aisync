@@ -183,7 +183,7 @@ tags:
   - continue
   - ai-session
   - coding
-summary: "${firstUserMsg.replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
+summary: "${firstUserMsg.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
 ---
 
 # 🔄 Continue Session — ${session.date} ${session.time.replace(':', '')}

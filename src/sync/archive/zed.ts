@@ -221,7 +221,7 @@ tags:
   - zed
   - ai-session
   - coding
-summary: "${firstUserMsg.replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
+summary: "${firstUserMsg.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
 ---
 
 # ⚡ Zed AI Session — ${session.date} ${session.time.replace(':', '')}

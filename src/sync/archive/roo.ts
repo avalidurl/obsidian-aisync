@@ -207,7 +207,7 @@ tags:
   - roo-code
   - ai-session
   - coding
-summary: "${firstUserMsg.replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
+summary: "${firstUserMsg.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
 ---
 
 # 🦘 Roo Code Session — ${task.date} ${task.time.replace(':', '')}

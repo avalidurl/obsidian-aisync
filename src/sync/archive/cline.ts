@@ -244,7 +244,7 @@ tags:
   - claude-dev
   - ai-session
   - coding
-summary: "${firstUserMsg.replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
+summary: "${firstUserMsg.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
 ---
 
 # 🤖 Cline Session — ${task.date} ${task.time.replace(':', '')}

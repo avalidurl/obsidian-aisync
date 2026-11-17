@@ -222,7 +222,7 @@ tags:
   - codeium
   - ai-session
   - coding
-summary: "${firstUserMsg.replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
+summary: "${firstUserMsg.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
 ---
 
 # 🏄 Windsurf Session — ${session.date} ${session.time.replace(':', '')}

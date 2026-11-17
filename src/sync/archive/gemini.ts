@@ -245,7 +245,7 @@ tags:
   - google
   - ai-session
   - coding
-summary: "${firstUserMsg.replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
+summary: "${firstUserMsg.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ')}..."
 ---
 
 # 💎 Gemini CLI Session — ${session.date} ${session.time.replace(':', '')}
